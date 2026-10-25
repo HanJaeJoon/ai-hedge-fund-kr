@@ -307,7 +307,7 @@ def fetch_snapshots(tickers: list[str]) -> dict[str, PriceSnapshot]:
         return {}
     quotes: dict[str, PriceSnapshot] = {}
     try:
-        with open_data_client() as fd, ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
+        with open_data_client(FDClient) as fd, ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
             for ticker, snapshot in zip(tickers, pool.map(fd.get_snapshot, tickers)):
                 if snapshot is not None:
                     quotes[ticker] = snapshot

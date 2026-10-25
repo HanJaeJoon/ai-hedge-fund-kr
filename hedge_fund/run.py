@@ -224,7 +224,7 @@ def _backtest(args, parser: argparse.ArgumentParser, console: Console) -> None:
     # did over the window, and that memory would otherwise score as skill.
     fund = Fund(spec, blind=True)
 
-    with open_data_client() as raw:
+    with open_data_client(FDClient) as raw:
         fd = CachedDataClient(raw)
         with console.status(
             f"[cyan]{spec.name}: backtesting {start} → {end} "
@@ -287,7 +287,7 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
 
     if args.action == "tick":
         deployed = load_deployed(directory)
-        with open_data_client() as raw:
+        with open_data_client(FDClient) as raw:
             fd = CachedDataClient(raw, live=deployed.spec.is_intraday)
             verb = "running the latest session again" if args.again else "advancing one session"
             with console.status(
@@ -310,7 +310,7 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
             detail = fields.get("reason") or (f"{fields.get('bars_skipped')} bars skipped" if "bars_skipped" in fields else "")
             console.print(f"[yellow]{kind}[/] {fields.get('from') or 'start'} → {fields.get('to')}  {detail}".rstrip())
 
-        with open_data_client() as raw:
+        with open_data_client(FDClient) as raw:
             try:
                 serve(directory, CachedDataClient(raw, live=spec.is_intraday),
                       on_record=lambda record: console.print(_tick_summary(deployed.name, record)),

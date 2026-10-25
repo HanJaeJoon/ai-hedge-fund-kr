@@ -295,9 +295,9 @@ def _growth(cur, prev) -> float | None:
     return cur / prev - 1 if cur is not None and prev else None
 
 
-def open_data_client():
-    """FDClient by default; KRXClient when HEDGE_FUND_DATA=krx."""
+def open_data_client(default):
+    """KRXClient when HEDGE_FUND_DATA=krx, else an instance of *default*
+    (the caller's FDClient name, so tests can patch it there)."""
     if os.environ.get("HEDGE_FUND_DATA", "").lower() == "krx":
         return KRXClient()
-    from hedge_fund.data.client import FDClient
-    return FDClient()
+    return default()
