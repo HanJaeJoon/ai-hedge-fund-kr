@@ -20,6 +20,7 @@ from rich.text import Text
 
 from hedge_fund.backtesting import performance_metrics
 from hedge_fund.data import FDClient, FDClientError, PriceSnapshot
+from hedge_fund.data.krx import open_data_client
 from hedge_fund.data.bars import bar_time, bars_per_day, is_intraday
 from hedge_fund.data.sessions import NEW_YORK
 from hedge_fund.fund import FundSpec
@@ -306,7 +307,7 @@ def fetch_snapshots(tickers: list[str]) -> dict[str, PriceSnapshot]:
         return {}
     quotes: dict[str, PriceSnapshot] = {}
     try:
-        with FDClient() as fd, ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
+        with open_data_client() as fd, ThreadPoolExecutor(max_workers=min(8, len(tickers))) as pool:
             for ticker, snapshot in zip(tickers, pool.map(fd.get_snapshot, tickers)):
                 if snapshot is not None:
                     quotes[ticker] = snapshot

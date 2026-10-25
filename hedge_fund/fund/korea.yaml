@@ -1,0 +1,24 @@
+# Korean equities mandate. Run with HEDGE_FUND_DATA=krx; tickers are 6-digit
+# KRX codes, amounts are KRW, benchmark is the KODEX 200 ETF.
+#
+#   HEDGE_FUND_DATA=krx aihf backtest hedge_fund/fund/korea.yaml --universe 005930,000660
+#
+schema_version: 2
+name: korea-value
+strategies:
+  - name: deep-value          # Graham-led, long-only (retail cannot short in Korea)
+    blend: {mode: long_only}
+    models:
+      - name: graham
+        weight: 2.0
+      - name: buffett
+      - name: munger
+risk:
+  max_position_pct: 0.5
+  max_gross_exposure: 1.0
+costs:
+  spread_bps: 20              # half-spread plus ~0.15% sell-side transaction tax, averaged
+  commission_per_share: 0
+capital: 100000000
+rebalance: weekly
+benchmark: "069500"
