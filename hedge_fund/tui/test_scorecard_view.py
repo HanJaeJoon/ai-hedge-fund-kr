@@ -44,3 +44,12 @@ def test_empty_scorecard_says_why():
     card = _card()
     assert "아직 채점할 의견이 없습니다" in render(analyst_table(card))
     assert "아직 귀속할 손익이 없습니다" in render(strategy_table(card))
+
+
+def test_money_follows_the_data_source(monkeypatch):
+    from hedge_fund.tui.shared import _money, money
+    monkeypatch.delenv("HEDGE_FUND_DATA", raising=False)
+    assert money(1234.5, ",.2f") == "$1,234.50" and money(-5, "+,.0f") == "$-5"
+    monkeypatch.setenv("HEDGE_FUND_DATA", "krx")
+    assert money(1234.5, ",.2f") == "1,234원" and money(500, "+,.0f") == "+500원"
+    assert _money(150_000_000) == "15,000만원" and _money(50_000) == "50,000원"

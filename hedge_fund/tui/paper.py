@@ -73,6 +73,7 @@ from hedge_fund.tui.shared import (
     BOARD_REFRESH,
     cadence_identity,
     DISPLAY_NAMES,
+    money,
     render_area_chart,
     session_label,
 )
@@ -663,7 +664,7 @@ class SessionsScreen(Screen):
         staff = ", ".join(s.title for s in spec.strategies)
         self.query_one("#pf-head", Static).update(Group(
             Text.assemble((snap.deployed.name, f"bold {BRIGHT}"), ("  ·  모의투자", MUTED)),
-            Text(f"{staff}  ·  {cadence_identity(spec)}  ·  ${spec.capital:,.0f}"
+            Text(f"{staff}  ·  {cadence_identity(spec)}  ·  {money(spec.capital, ',.0f')}"
                  f"  ·  {' '.join(snap.deployed.universe)}", style=MUTED),
         ))
         self.query_one("#pf-status", Static).update(snap.status())

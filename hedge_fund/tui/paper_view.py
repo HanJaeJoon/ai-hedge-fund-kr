@@ -33,7 +33,7 @@ from hedge_fund.pipeline import (
 )
 from hedge_fund.tui.palette import BRIGHT, CYAN, GREEN, MUTED, RED, TEXT
 from hedge_fund.tui.report import session_row, weights_line
-from hedge_fund.tui.shared import cadence_identity, render_area_chart, session_label
+from hedge_fund.tui.shared import cadence_identity, money, render_area_chart, session_label
 
 _PERIOD_WORD = {"daily": "날", "weekly": "주", "monthly": "달"}
 
@@ -244,7 +244,7 @@ def live_rows(
     tone = MUTED if stale else GREEN if change >= 0 else RED
     when = f"{newest.month}월 {newest.day}일 {newest:%H:%M}" if stale else newest.strftime("%H:%M")
     return [("실시간", Text.assemble(
-        (f"${value:,.0f}", MUTED if stale else TEXT),
+        (f"{money(value, ',.0f')}", MUTED if stale else TEXT),
         (f"   {change:+.2%}", tone),
         (f"   {when} ET 기준", MUTED)))]
 
@@ -262,7 +262,7 @@ def paper_detail(
     staff = ", ".join(s.title for s in spec.strategies)
     parts: list = [
         Text.assemble((snap.deployed.name, f"bold {BRIGHT}"), "   ", snap.badge()),
-        Text(f"{staff} · {cadence_identity(spec)} · ${spec.capital:,.0f} · {' '.join(snap.deployed.universe)}",
+        Text(f"{staff} · {cadence_identity(spec)} · {money(spec.capital, ',.0f')} · {' '.join(snap.deployed.universe)}",
              style=MUTED),
         Text(""),
     ]
@@ -279,7 +279,7 @@ def paper_detail(
         n = len(snap.records)
         ret, bench_ret = m.total_return_pct, m.benchmark_return_pct
         parts += [Text(""), _section("성과"), _facts([
-            ("평가액", f"${snap.nav:,.0f}"),
+            ("평가액", f"{money(snap.nav, ',.0f')}"),
             ("수익률", Text.assemble((f"{ret:+.1%}", GREEN if ret >= 0 else RED),
                                      (f"   {spec.benchmark} {bench_ret:+.1%}", MUTED))),
             ("시작", Text(f"{snap.records[0].session} · 세션 {n}개 · 주문 {m.n_orders}건", style=MUTED)),

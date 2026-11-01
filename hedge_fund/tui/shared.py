@@ -8,6 +8,7 @@ rich renderables (which Textual Statics render natively).
 
 from __future__ import annotations
 
+import os
 from datetime import date as _date
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _version
@@ -129,7 +130,17 @@ def strategy_kind(strategy: StrategySpec) -> str:
     return "systematic"
 
 
+def money(value: float, spec: str = ",.0f") -> str:
+    """An amount in the data source's currency: `$1,234.50`, or `1,235원` under krx."""
+    # shortcut: currency follows HEDGE_FUND_DATA, not the fund; store it on the spec if one process ever mixes markets.
+    if os.environ.get("HEDGE_FUND_DATA", "").lower() == "krx":
+        return f"{value:{spec.replace('.2f', '.0f')}}원"
+    return f"${value:{spec}}"
+
+
 def _money(value: float) -> str:
+    if os.environ.get("HEDGE_FUND_DATA", "").lower() == "krx":
+        return f"{value / 10_000:,.0f}만원" if abs(value) >= 100_000_000 else money(value)
     if abs(value) >= 10_000:
         return f"${value / 1000:,.0f}k"
     return f"${value:,.0f}"

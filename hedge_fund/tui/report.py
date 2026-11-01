@@ -21,7 +21,7 @@ from hedge_fund.llm import ThesisStream
 from hedge_fund.models import Signal
 from hedge_fund.pipeline import CycleRecord, DecisionRecord, SessionRecord
 from hedge_fund.tui.palette import BRIGHT, CYAN, GREEN, MUTED, RED, TEXT
-from hedge_fund.tui.shared import DISPLAY_NAMES, horizon_label, SHORT_NAMES
+from hedge_fund.tui.shared import DISPLAY_NAMES, horizon_label, money, SHORT_NAMES
 
 # One glyph and one colour per call, in one place: the live board knows only
 # the word the stream has decoded, the report has a whole Signal, and they must
@@ -327,7 +327,7 @@ def portfolio_detail(record: CycleRecord) -> Group:
     actual_net = sum(shares * record.marks[ticker] for ticker, shares in record.positions.items())
     details = [
         Text("포트폴리오", style=f"bold {BRIGHT}"),
-        Text(f"목표 순노출 ${target_net:+,.2f} · 실제 순노출 ${actual_net:+,.2f} · 차이 ${actual_net - target_net:+,.2f}", style=MUTED),
+        Text(f"목표 순노출 {money(target_net, '+,.2f')} · 실제 순노출 {money(actual_net, '+,.2f')} · 차이 {money(actual_net - target_net, '+,.2f')}", style=MUTED),
     ]
     if any(s.blend.mode == "dollar_neutral" for s in record.spec.strategies):
         details.append(Text("달러 중립 규칙은 전략의 목표 비중에 적용됩니다. 주식 수가 정수라 실제 보유는 다를 수 있고, 다른 전략이 순노출을 더할 수 있습니다.", style=MUTED))
@@ -352,7 +352,7 @@ def portfolio_detail(record: CycleRecord) -> Group:
         tone = GREEN if value >= 0 else RED
         table.add_row(
             ticker, side, f"{shares:+d}",
-            Text(f"${value:+,.0f}", style=tone),
+            Text(f"{money(value, '+,.0f')}", style=tone),
             Text(f"{value / record.nav:+.1%}", style=tone),
         )
     return Group(*details, Text(""), table)
@@ -367,8 +367,8 @@ def book_summary(record: CycleRecord | SessionRecord) -> Text:
     gross = (long_val - short_val) / record.nav
     net = (long_val + short_val) / record.nav
     summary = Text()
-    summary.append(f"NAV ${record.nav:,.2f}", style=f"bold {BRIGHT}")
-    summary.append(f"   현금 ${record.cash:,.0f}", style=CYAN)
+    summary.append(f"NAV {money(record.nav, ',.2f')}", style=f"bold {BRIGHT}")
+    summary.append(f"   현금 {money(record.cash, ',.0f')}", style=CYAN)
     summary.append(f"   총노출 {gross:.0%}   순노출 {net:+.0%}", style=MUTED)
     return summary
 
@@ -415,7 +415,7 @@ def session_overview(record: SessionRecord) -> Group:
     ]
     if record.executed is not None:
         x = record.executed
-        costs = f" · 비용 ${x.trading_cost:,.2f}" if x.trading_cost else ""
+        costs = f" · 비용 {money(x.trading_cost, ',.2f')}" if x.trading_cost else ""
         parts.append(Text.assemble(
             ("실행됨  ", f"bold {GREEN}"),
             (f"{x.as_of} 결정 · 주문 {len(x.orders)}건 · 체결 {len(x.fills)}건{costs}", MUTED)))
@@ -424,7 +424,7 @@ def session_overview(record: SessionRecord) -> Group:
             parts.append(Text.assemble(
                 (f"  {_SIDE_LABEL[fill.side]} ", f"bold {tone}"),
                 (f"{fill.quantity:,} {fill.ticker}", TEXT),
-                (f" @ ${fill.price:,.2f}", MUTED)))
+                (f" @ {money(fill.price, ',.2f')}", MUTED)))
         if len(x.fills) > 8:
             parts.append(Text(f"  외 {len(x.fills) - 8}건", style=MUTED))
         parts.append(Text(""))
@@ -462,7 +462,7 @@ def cost_line(trading_cost: float, traded_notional: float) -> str:
     if traded_notional == 0:
         return "거래 없음"
     bps = trading_cost / traded_notional * 10_000
-    return f"비용 ${trading_cost:,.0f} · 거래대금 ${traded_notional:,.0f}의 {bps:.1f} bps"
+    return f"비용 {money(trading_cost, ',.0f')} · 거래대금 {money(traded_notional, ',.0f')}의 {bps:.1f} bps"
 
 
 def tape_table(tape: list[tuple[str, Fill, int]]) -> Table:
@@ -488,8 +488,8 @@ def tape_table(tape: list[tuple[str, Fill, int]]) -> Table:
             Text(fill.ticker, style=f"bold {CYAN}"),
             side,
             f"{fill.quantity:,}",
-            f"@ ${fill.price:,.2f}",
-            Text(f"${fill.quantity * fill.price:,.0f}", style=TEXT),
+            f"@ {money(fill.price, ',.2f')}",
+            Text(f"{money(fill.quantity * fill.price, ',.0f')}", style=TEXT),
             book,
         )
     if len(tape) > _TAPE_ROWS:
@@ -575,7 +575,7 @@ def _session_book(record: SessionRecord) -> Group:
                 else Text("숏", style=f"bold {RED}"))
         tone = GREEN if value >= 0 else RED
         table.add_row(ticker, side, f"{shares:+d}",
-                      Text(f"${value:+,.0f}", style=tone),
+                      Text(f"{money(value, '+,.0f')}", style=tone),
                       Text(f"{value / record.nav:+.1%}", style=tone))
     return Group(*head, Text(""), table)
 
@@ -640,11 +640,11 @@ def _orders_detail(record: CycleRecord) -> Group:
             Text(_SIDE_LABEL[o.side], style=tone),
             Text(f"{o.quantity:,}", style=tone),
             o.ticker,
-            f"${o.price:,.2f}",
-            f"${fill.price:,.2f}",
+            f"{money(o.price, ',.2f')}",
+            f"{money(fill.price, ',.2f')}",
         )
     if record.slippage or record.commission:
-        table.caption = f"슬리피지 ${record.slippage:,.2f} · 수수료 ${record.commission:,.2f}"
+        table.caption = f"슬리피지 {money(record.slippage, ',.2f')} · 수수료 {money(record.commission, ',.2f')}"
         table.caption_style = MUTED
         table.caption_justify = "left"
     return Group(Text("주문", style=f"bold {BRIGHT}"), Text(""), table)

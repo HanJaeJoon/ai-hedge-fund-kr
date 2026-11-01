@@ -86,7 +86,7 @@ from hedge_fund.scorecard import score
 from hedge_fund.tui.keys import apply_credentials
 from hedge_fund.tui.report import cost_line
 from hedge_fund.tui.scorecard_view import analyst_table, strategy_table
-from hedge_fund.tui.shared import BACKTEST_WEEKS
+from hedge_fund.tui.shared import BACKTEST_WEEKS, money
 
 
 def main() -> None:
@@ -272,7 +272,7 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
         cadence = f"{spec.cadence_label}, {spec.window.label}" if spec.is_intraday else spec.cadence_label
         console.print(
             f"[bold]{args.name}[/] 배포 완료: {directory}  ·  운용 지침 {spec.name}  ·  "
-            f"{', '.join(universe)}  ·  ${spec.capital:,.0f}  ·  {cadence}"
+            f"{', '.join(universe)}  ·  {money(spec.capital, ',.0f')}  ·  {cadence}"
         )
         console.print(f"[dim]다음: 세션 하나 실행은 `aihf paper tick {args.name}`, 계속 실행은 `aihf paper run "
                       f"{args.name}`, 상태 확인은 언제든 `aihf paper status {args.name}`[/]")
@@ -372,11 +372,11 @@ def _status_line(directory: Path) -> str:
     latest = ledger.latest()
     halted = ledger.halted()
     if latest is None:
-        state = f"시작 전  ·  ${deployed.spec.capital:,.0f}"
+        state = f"시작 전  ·  {money(deployed.spec.capital, ',.0f')}"
     else:
         ret = latest.nav / deployed.spec.capital - 1
         state = (f"세션 {len(ledger.sessions())}개  ·  마지막 {latest.session}  ·  "
-                 f"NAV ${latest.nav:,.2f} ({ret:+.2%})")
+                 f"NAV {money(latest.nav, ',.2f')} ({ret:+.2%})")
     flag = f"  ·  거래 중지됨: {halted}" if halted else ""
     running = "  ·  실행 중" if is_running(directory) else ""
     return (f"{deployed.name:<18} {deployed.spec.name}  ·  {' '.join(deployed.universe)}  ·  "
@@ -384,9 +384,9 @@ def _status_line(directory: Path) -> str:
 
 
 def _tick_summary(name: str, record: SessionRecord) -> str:
-    parts = [f"[bold]{name}[/] · 세션 {record.session} · NAV ${record.nav:,.2f}"]
+    parts = [f"[bold]{name}[/] · 세션 {record.session} · NAV {money(record.nav, ',.2f')}"]
     if record.executed is not None:
-        costs = f", 비용 ${record.executed.trading_cost:,.2f}" if record.executed.trading_cost else ""
+        costs = f", 비용 {money(record.executed.trading_cost, ',.2f')}" if record.executed.trading_cost else ""
         parts.append(f"{record.executed.as_of} 결정의 주문 {len(record.executed.orders)}건 체결{costs}")
     if record.decision is not None and record.decision.is_stopped_out:
         stop = next(c for c in record.decision.clamps if c.limit == "max_drawdown_pct")
