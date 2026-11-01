@@ -37,6 +37,7 @@ DISPLAY_NAMES = {
     "munger": "Charlie Munger",
     "graham": "Benjamin Graham",
     "lynch": "Peter Lynch",
+    "wood": "Cathie Wood",
     "druckenmiller": "Stanley Druckenmiller",
     "pead": "post-earnings drift",
 }
@@ -46,6 +47,7 @@ SHORT_NAMES = {
     "munger": "Munger",
     "graham": "Graham",
     "lynch": "Lynch",
+    "wood": "Wood",
     "druckenmiller": "Druckenmiller",
     "pead": "PEAD",
 }
