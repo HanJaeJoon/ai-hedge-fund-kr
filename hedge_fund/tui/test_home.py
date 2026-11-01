@@ -118,3 +118,17 @@ def test_home_offers_paper_trading_first_and_an_empty_paper_screen_builds():
             await pilot.press("enter")
             assert isinstance(app.screen, funds.FundSelectScreen)
     asyncio.run(scenario())
+
+
+def test_key_gate_asks_for_dart_under_krx(monkeypatch, isolated_configuration):
+    monkeypatch.setenv("HEDGE_FUND_DATA", "krx")
+    monkeypatch.delenv("DART_API_KEY", raising=False)
+
+    async def scenario():
+        app = HedgeFundApp()
+        async with app.run_test(size=(100, 35)) as pilot:
+            assert home.demand_run_keys(app, Mock()) is False
+            await pilot.pause()
+            assert app.screen._env_var == "DART_API_KEY"
+
+    asyncio.run(scenario())

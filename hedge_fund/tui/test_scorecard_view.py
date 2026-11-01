@@ -53,3 +53,5 @@ def test_money_follows_the_data_source(monkeypatch):
     monkeypatch.setenv("HEDGE_FUND_DATA", "krx")
     assert money(1234.5, ",.2f") == "1,234원" and money(500, "+,.0f") == "+500원"
     assert _money(150_000_000) == "15,000만원" and _money(50_000) == "50,000원"
+    from hedge_fund.tui.shared import universe_presets
+    assert universe_presets()[0] == "005930"

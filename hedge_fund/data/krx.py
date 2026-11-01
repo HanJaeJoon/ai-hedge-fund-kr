@@ -295,9 +295,13 @@ def _growth(cur, prev) -> float | None:
     return cur / prev - 1 if cur is not None and prev else None
 
 
+def krx_selected() -> bool:
+    return os.environ.get("HEDGE_FUND_DATA", "").lower() == "krx"
+
+
 def open_data_client(default):
     """KRXClient when HEDGE_FUND_DATA=krx, else an instance of *default*
     (the caller's FDClient name, so tests can patch it there)."""
-    if os.environ.get("HEDGE_FUND_DATA", "").lower() == "krx":
+    if krx_selected():
         return KRXClient()
     return default()

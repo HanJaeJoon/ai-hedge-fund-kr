@@ -93,7 +93,7 @@ class FundSelectScreen(Screen):
             self._show_detail(first)
         else:
             self.query_one("#detail-body", Static).update(
-                Text("저장된 운용 지침을 사용할 수 없습니다. 펀드 만들기에서 다시 만들거나 설정을 고치십시오.", style=MUTED))
+                Text("저장된 운용 지침을 사용할 수 없습니다. 펀드 만들기에서 다시 만들거나 설정을 고치세요.", style=MUTED))
 
     @on(OptionList.OptionHighlighted, "#select-menu")
     def _hover(self, event: OptionList.OptionHighlighted) -> None:

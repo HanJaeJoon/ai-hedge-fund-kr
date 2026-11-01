@@ -29,6 +29,7 @@ from textual.widgets.selection_list import Selection
 
 from hedge_fund import paths
 from hedge_fund.data.bars import bars_per_day
+from hedge_fund.data.krx import krx_selected
 from hedge_fund.data.sessions import NEW_YORK
 from hedge_fund.fund import (
     cadence_name,
@@ -60,16 +61,22 @@ from hedge_fund.tui.shared import (
     DEFAULT_RISK,
     DISPLAY_NAMES,
     horizon_label,
+    KRX_DEFAULT_CAPITAL,
+    KRX_FUND_DEFAULTS,
     MODE_LABELS,
     money,
     SHORT_NAMES,
     strategy_description,
     STRATEGY_DIR,
     strategy_kind,
-    UNIVERSE_PRESETS,
+    universe_presets,
 )
 
 CUSTOM = "custom"  # sentinel value in the strategy list for "build your own"
+
+
+def _default_capital() -> float:
+    return KRX_DEFAULT_CAPITAL if krx_selected() else DEFAULT_CAPITAL
 
 
 _NEWS_SENTENCE = (
@@ -182,9 +189,9 @@ class BuilderScreen(Screen):
                     )
                 with VerticalScroll(id="step-capital", classes="pane"):
                     yield Static("", id="strategy-summary")
-                    yield Label("초기 자본금($)", classes="q")
+                    yield Label(f"초기 자본금({'원' if krx_selected() else '$'})", classes="q")
                     yield Input(
-                        value=f"{DEFAULT_CAPITAL:.0f}", type="number",
+                        value=f"{_default_capital():.0f}", type="number",
                         id="capital-input",
                     )
                 with Vertical(id="step-cadence", classes="pane"):
@@ -215,7 +222,7 @@ class BuilderScreen(Screen):
                 with Vertical(id="step-tickers", classes="pane"):
                     yield Label("거래할 종목", classes="q")
                     yield Input(
-                        placeholder=f"예: {', '.join(UNIVERSE_PRESETS[:5])}",
+                        placeholder=f"예: {', '.join(universe_presets()[:5])}",
                         id="tickers-input",
                     )
                     yield Static(
@@ -377,7 +384,7 @@ class BuilderScreen(Screen):
     @on(Input.Submitted, "#capital-input")
     def _submit_capital(self, event: Input.Submitted) -> None:
         try:
-            capital = float(event.value or DEFAULT_CAPITAL)
+            capital = float(event.value or _default_capital())
             if not isfinite(capital) or capital <= 0:
                 raise ValueError("capital must be positive")
             self._state["capital"] = capital
@@ -483,6 +490,7 @@ class BuilderScreen(Screen):
             capital=self._state["capital"],
             rebalance=self._state["rebalance"],
             **({"interval": self._state["interval"], "window": self._state["window"]} if intraday else {}),
+            **(KRX_FUND_DEFAULTS if krx_selected() else {}),
         )
         # The user said yes to replacing the fund that held this name: clear
         # it now, at the last moment, so an abandoned wizard costs nothing.
@@ -493,14 +501,14 @@ class BuilderScreen(Screen):
         # the way in, but something may have taken it since. Paper mode needs
         # both the saved definition and the fund directory to be free.
         if self.mode == "paper" and (paths.PAPER_DIR / spec.name).exists():
-            self.notify("같은 이름의 모의투자 펀드가 이미 있습니다. 다른 이름을 고르십시오.",
+            self.notify("같은 이름의 모의투자 펀드가 이미 있습니다. 다른 이름을 고르세요.",
                         severity="error")
             self._goto("step-name")
             return
         try:
             path = save_spec(spec, paths.MANDATES_DIR)
         except FileExistsError:
-            self.notify("같은 이름의 펀드가 이미 있습니다. 다른 이름을 고르십시오.",
+            self.notify("같은 이름의 펀드가 이미 있습니다. 다른 이름을 고르세요.",
                         severity="error")
             self._goto("step-name")
             return

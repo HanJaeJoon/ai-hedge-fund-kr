@@ -8,7 +8,6 @@ rich renderables (which Textual Statics render natively).
 
 from __future__ import annotations
 
-import os
 from datetime import date as _date
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _version
@@ -18,6 +17,7 @@ from rich.cells import cell_len
 from rich.text import Text
 
 from hedge_fund.data.bars import is_intraday
+from hedge_fund.data.krx import krx_selected
 from hedge_fund.fund import FundSpec, PortfolioMode, StrategySpec
 from hedge_fund.signals import ALPHA_MODEL_REGISTRY, get_investment_approach, LLMAgent
 
@@ -33,6 +33,11 @@ STRATEGY_DIR = Path(__file__).resolve().parent.parent / "strategies"
 
 UNIVERSE_PRESETS = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN",
                     "META", "TSLA", "JPM", "UNH", "XOM"]
+KRX_UNIVERSE_PRESETS = ["005930", "000660", "035420", "005380", "035720",
+                        "051910", "068270", "105560", "207940", "373220"]
+# A new fund under krx: KODEX 200, won-sized capital, the korea.yaml costs (no per-share commission).
+KRX_FUND_DEFAULTS = {"benchmark": "069500", "costs": {"spread_bps": 20, "commission_per_share": 0}}
+KRX_DEFAULT_CAPITAL = 100_000_000.0
 
 DISPLAY_NAMES = {
     "buffett": "Warren Buffett",
@@ -130,16 +135,20 @@ def strategy_kind(strategy: StrategySpec) -> str:
     return "systematic"
 
 
+def universe_presets() -> list[str]:
+    return KRX_UNIVERSE_PRESETS if krx_selected() else UNIVERSE_PRESETS
+
+
 def money(value: float, spec: str = ",.0f") -> str:
     """An amount in the data source's currency: `$1,234.50`, or `1,235원` under krx."""
     # shortcut: currency follows HEDGE_FUND_DATA, not the fund; store it on the spec if one process ever mixes markets.
-    if os.environ.get("HEDGE_FUND_DATA", "").lower() == "krx":
+    if krx_selected():
         return f"{value:{spec.replace('.2f', '.0f')}}원"
     return f"${value:{spec}}"
 
 
 def _money(value: float) -> str:
-    if os.environ.get("HEDGE_FUND_DATA", "").lower() == "krx":
+    if krx_selected():
         return f"{value / 10_000:,.0f}만원" if abs(value) >= 100_000_000 else money(value)
     if abs(value) >= 10_000:
         return f"${value / 1000:,.0f}k"

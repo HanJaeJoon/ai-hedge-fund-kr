@@ -52,7 +52,7 @@ from hedge_fund.tui.shared import (
     DISPLAY_NAMES,
     fund_label,
     render_area_chart,
-    UNIVERSE_PRESETS,
+    universe_presets,
     valid_date,
     WARM_CHUNK,
 )
@@ -95,7 +95,7 @@ class BacktestScreen(Screen):
                 yield Label("백테스트 기간", classes="q")
                 yield Static(Text("거래할 종목", style=MUTED))
                 yield Input(
-                    placeholder=f"예: {', '.join(UNIVERSE_PRESETS[:5])}",
+                    placeholder=f"예: {', '.join(universe_presets()[:5])}",
                     id="bt-tickers",
                 )
                 yield Static(Text("시작일(YYYY-MM-DD)", style=MUTED))

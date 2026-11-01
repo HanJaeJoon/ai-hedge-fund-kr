@@ -354,3 +354,25 @@ def test_builder_paper_mode_run_its_first_session_opens_the_approval_step(monkey
             assert rail.get_option_at_index(rail.highlighted).id == "paper:0"
             assert not isinstance(app.screen_stack[-2], builder.BuilderScreen)  # the builder was switched out
     asyncio.run(scenario())
+
+
+def test_builder_under_krx_saves_a_korean_fund(monkeypatch):
+    monkeypatch.setenv("HEDGE_FUND_DATA", "krx")
+
+    async def scenario():
+        app = HedgeFundApp()
+        async with app.run_test(size=(120, 45)) as pilot:
+            await app.push_screen(builder.BuilderScreen())
+            screen = app.screen
+            screen.query_one("#name-input", Input).value = "kr-fund"
+            await pilot.press("enter")
+            screen.query_one("#strategy-list", SelectionList).select(builder.CUSTOM)
+            await pilot.press("enter")
+            screen.query_one("#agent-list", SelectionList).select("graham")
+            await pilot.press("enter", "enter", "enter")
+            assert screen.query_one("#panes", ContentSwitcher).current == "step-done"
+            saved = load_spec(paths.MANDATES_DIR / "kr-fund.yaml")
+            assert saved.benchmark == "069500" and saved.capital == 100_000_000
+            assert saved.costs.commission_per_share == 0
+
+    asyncio.run(scenario())
