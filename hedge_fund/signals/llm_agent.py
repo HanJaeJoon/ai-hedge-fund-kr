@@ -27,6 +27,7 @@ features/intraday.py. It is bucketed so quiet bars stay cache hits.
 from __future__ import annotations
 
 import logging
+import os
 
 from hedge_fund.data.bars import is_intraday
 from hedge_fund.data.protocol import DataClient
@@ -76,6 +77,11 @@ class LLMAgent(AlphaModel):
         # Any other data-layer exception (e.g. FDClientError) propagates.
 
         system = self.get_system_prompt()
+        # Unset keeps the prompt (and its cache keys) byte-identical to upstream.
+        language = os.environ.get("HEDGE_FUND_LANGUAGE", "").strip()
+        if language:
+            system += (f'\n\nWrite the "reasoning" value in {language}. Keep the JSON keys '
+                       f'and the "signal" value exactly as specified, in English.')
         user = self.build_user_prompt(snapshot)
         if is_intraday(date):
             # A bar, not a close: add the day so far. Bucketed, so a quiet

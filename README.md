@@ -11,6 +11,7 @@
    ```
    DART_API_KEY=발급받은 키
    ANTHROPIC_API_KEY=...
+   HEDGE_FUND_LANGUAGE=Korean   # 선택: 에이전트 분석(reasoning)을 한국어로 받음
    ```
 
 4. `HEDGE_FUND_DATA=krx`로 실행합니다. 종목은 6자리 종목코드, 벤치마크는 ETF 코드(기본 069500 = KODEX 200), 금액은 원화입니다.

@@ -89,6 +89,23 @@ def test_value_folding(tmp_path, signal, confidence, expected):
     assert sig.metadata["abstained"] is False
 
 
+@pytest.mark.parametrize("language", ["", "Korean"])
+def test_reasoning_language_follows_env(tmp_path, monkeypatch, language):
+    monkeypatch.setenv("HEDGE_FUND_LANGUAGE", language)
+    systems = []
+
+    class RecordingLLM(FakeLLM):
+        def complete(self, system, user):
+            systems.append(system)
+            return super().complete(system, user)
+
+    agent = _agent(tmp_path, RecordingLLM(BULLISH))
+    agent.predict("TEST", "2025-01-15", MockDataClient(metrics=_history()))
+
+    assert systems[0].startswith(agent.get_system_prompt())
+    assert ("in Korean" in systems[0]) is bool(language)
+
+
 # ---------------------------------------------------------------------------
 # Failure contract
 # ---------------------------------------------------------------------------
