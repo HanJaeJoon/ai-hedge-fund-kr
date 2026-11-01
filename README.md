@@ -37,68 +37,68 @@
 
 ---
 
-# AI Hedge Fund
+# AI Hedge Fund (원본 안내)
 
-This is a proof of concept for an AI-powered hedge fund. The goal of this project is to explore the use of AI to make trading decisions. This project is for **educational** purposes only and is not intended for real trading or investment.
+AI 기반 헤지펀드의 개념 증명(proof of concept) 프로젝트입니다. AI로 매매 결정을 내리는 방법을 탐구하는 것이 목표입니다. 이 프로젝트는 **교육** 목적으로만 만들었으며, 실제 매매나 투자를 위한 것이 아닙니다.
 
 <img width="2400" height="1460" alt="image" src="https://github.com/user-attachments/assets/e3985623-c226-4c1a-a587-e03fb4eca31e" />
 
 
-Note: the system does not actually make any trades.
+참고: 이 시스템은 실제로 매매하지 않습니다.
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/virattt?style=social)](https://twitter.com/virattt)
 
-## Disclaimer
+## 면책 조항
 
-This project is for **educational and research purposes only**.
+이 프로젝트는 **교육과 연구 목적으로만** 만들었습니다.
 
-- Not intended for real trading or investment
-- No investment advice or guarantees provided
-- Creator assumes no liability for financial losses
-- Consult a financial advisor for investment decisions
-- Past performance does not indicate future results
+- 실제 매매나 투자를 위한 것이 아닙니다.
+- 투자 조언이나 수익 보장을 제공하지 않습니다.
+- 제작자는 금전적 손실에 책임지지 않습니다.
+- 투자 결정은 금융 전문가와 상담하세요.
+- 과거 성과가 미래 수익을 보장하지 않습니다.
 
-By using this software, you agree to use it solely for learning purposes.
+이 소프트웨어를 사용하면 학습 목적으로만 쓰는 데 동의한 것으로 봅니다.
 
-## How to Install
+## 설치
 
 ```bash
 pipx install aihf
 ```
 
-(or `uv tool install aihf`, or `pip install aihf` into an environment of your choice)
+(`uv tool install aihf`로 설치하거나, 원하는 환경에 `pip install aihf`로 설치해도 됩니다.)
 
-Then run it from anywhere:
-
-```bash
-aihf
-```
-
-### API keys
-
-The app asks for keys the first time it needs them and saves them to `~/.hedge-fund/.env` — nothing to configure up front. It needs:
-
-- A [Financial Datasets](https://financialdatasets.ai) API key, for prices, fundamentals, and earnings.
-- One model API key for the investor agents. Supported providers: Anthropic, OpenAI, DeepSeek, Google, xAI, Kimi, TypeSafe (Jev).
-
-Keys exported in your shell always win over the saved file.
-
-## How to Run
-
-### Interactive app
+설치한 뒤에는 어디서든 실행할 수 있습니다.
 
 ```bash
 aihf
 ```
 
-With no arguments, this launches the interactive terminal app. It has two modes:
+### API 키
 
-- **Paper trading** — your funds, each with a ledger of real market days and fake money. Highlight a fund to see what its next run will do; press enter to run it through the next completed session (an approval step shows the exact decision about to execute before anything trades), `s` for its full session history, `h`/`r` for the kill switch. Build a new fund from the same list: strategies, capital, cadence, tickers, and it is live. Every session is appended to a hash-chained ledger in `~/.hedge-fund/paper/<name>/`, so NAV is a track record, not a reset.
-- **Backtesting** — replay a fund over history and watch its equity curve draw against its benchmark. Results are saved to `~/.hedge-fund/research/`. Fund definitions live in `~/.hedge-fund/mandates/` and carry no tickers; you pick the universe per backtest.
+앱은 키가 처음 필요할 때 입력을 요청하고 `~/.hedge-fund/.env`에 저장하므로 미리 설정할 것은 없습니다. 필요한 키는 다음과 같습니다.
+
+- 가격, 재무, 실적 데이터를 가져올 [Financial Datasets](https://financialdatasets.ai) API 키
+- 투자자 에이전트가 쓸 모델 API 키 하나. 지원하는 제공자: Anthropic, OpenAI, DeepSeek, Google, xAI, Kimi, TypeSafe (Jev)
+
+셸에서 export한 키가 저장된 파일보다 항상 우선합니다.
+
+## 실행
+
+### 대화형 앱
+
+```bash
+aihf
+```
+
+인자 없이 실행하면 대화형 터미널 앱이 열립니다. 모드는 두 가지입니다.
+
+- **모의투자** - 내 펀드 목록입니다. 펀드마다 실제 거래일과 가상의 돈으로 쌓은 원장이 있습니다. 펀드를 선택하면 다음 실행에서 무엇을 할지 보여 줍니다. enter를 누르면 다음으로 마감된 세션까지 실행하고(매매 전에 실행할 결정을 그대로 보여 주는 승인 단계를 거칩니다), `s`를 누르면 전체 세션 기록을, `h`/`r`을 누르면 킬 스위치를 씁니다. 같은 목록에서 새 펀드도 만들 수 있습니다. 전략, 자본금, 주기, 종목을 정하면 바로 운용이 시작됩니다. 모든 세션은 `~/.hedge-fund/paper/<name>/`의 해시 체인 원장에 이어서 기록되므로, NAV는 초기화되지 않는 실제 운용 실적이 됩니다.
+- **백테스트** - 과거 데이터로 펀드를 다시 돌려 보고, 자산 곡선이 벤치마크와 나란히 그려지는 것을 볼 수 있습니다. 결과는 `~/.hedge-fund/research/`에 저장됩니다. 펀드 정의는 `~/.hedge-fund/mandates/`에 있으며 종목을 담고 있지 않습니다. 유니버스는 백테스트할 때마다 고릅니다.
 
 
 
-## Development
+## 개발
 
 ```bash
 git clone https://github.com/virattt/ai-hedge-fund.git
@@ -108,20 +108,20 @@ poetry run aihf
 poetry run pytest hedge_fund
 ```
 
-## How to Contribute
+## 기여 방법
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+1. 저장소를 포크합니다.
+2. 기능 브랜치를 만듭니다.
+3. 변경 사항을 커밋합니다.
+4. 브랜치에 push합니다.
+5. Pull Request를 만듭니다.
 
-**Important**: Please keep your pull requests small and focused. This will make it easier to review and merge.
+**중요**: pull request는 작게, 한 가지 목적에 집중해서 만들어 주세요. 그래야 리뷰와 병합이 쉬워집니다.
 
-## Feature Requests
+## 기능 요청
 
-If you have a feature request, please open an [issue](https://github.com/virattt/ai-hedge-fund/issues) and make sure it is tagged with `enhancement`.
+기능 요청이 있으면 [issue](https://github.com/virattt/ai-hedge-fund/issues)를 열고 `enhancement` 태그를 달아 주세요.
 
-## License
+## 라이선스
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+이 프로젝트는 MIT 라이선스를 따릅니다. 자세한 내용은 LICENSE 파일을 참고하세요.
