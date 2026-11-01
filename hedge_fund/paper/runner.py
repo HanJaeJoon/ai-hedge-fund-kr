@@ -219,6 +219,8 @@ def is_running(directory: str | Path) -> bool:
     pid = _read_pid(directory)
     if pid is None:
         return False
+    if os.name == "nt":
+        return _windows_pid_alive(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -226,6 +228,23 @@ def is_running(directory: str | Path) -> bool:
     except PermissionError:
         return True
     return True
+
+
+def _windows_pid_alive(pid: int) -> bool:
+    # os.kill(pid, 0) on Windows sends CTRL_C_EVENT to a process group instead of probing.
+    import ctypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return ctypes.get_last_error() == 5  # ERROR_ACCESS_DENIED: alive, owned by someone else
+    try:
+        code = ctypes.c_ulong()
+        kernel32.GetExitCodeProcess(ctypes.c_void_p(handle), ctypes.byref(code))
+        return code.value == 259  # STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(ctypes.c_void_p(handle))
 
 
 def stop_runner(directory: str | Path) -> bool:

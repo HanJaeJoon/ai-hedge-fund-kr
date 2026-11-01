@@ -238,6 +238,14 @@ def test_a_daily_fund_is_run_unattended_too_catching_up_after_each_midnight(tmp_
     assert loop.events == [] and Ledger(directory).sessions() == ["2024-06-03", "2024-06-04", "2024-06-05", "2024-06-06"]
 
 
+def test_is_running_sees_a_live_pid_and_ignores_a_stale_one(tmp_path):
+    directory = deploy("bars", _spec(), ["AAPL"], root=tmp_path)
+    (directory / PID_FILE).write_text(str(os.getpid()))
+    assert is_running(directory)
+    (directory / PID_FILE).write_text("999999999")
+    assert not is_running(directory)
+
+
 def test_serve_holds_a_pid_file_and_stops_on_sigterm(tmp_path, monkeypatch):
     directory = deploy("bars", _spec(), ["AAPL"], root=tmp_path)
     assert not is_running(directory) and not stop_runner(directory)
