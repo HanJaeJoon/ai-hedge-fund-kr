@@ -1,0 +1,18 @@
+# Korean growth mandate: Lynch (GARP) and Wood (disruptive innovation), long-only.
+schema_version: 2
+name: korea-growth
+strategies:
+  - name: growth
+    blend: {mode: long_only}
+    models:
+      - name: lynch
+      - name: wood
+risk:
+  max_position_pct: 0.5
+  max_gross_exposure: 1.0
+costs:
+  spread_bps: 20
+  commission_per_share: 0
+capital: 100000000
+rebalance: weekly
+benchmark: "069500"
