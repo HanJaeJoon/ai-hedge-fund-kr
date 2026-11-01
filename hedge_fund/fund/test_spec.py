@@ -19,7 +19,7 @@ from hedge_fund.fund import (
     save_spec,
     StrategySpec,
 )
-from hedge_fund.signals import ALPHA_MODEL_REGISTRY, get_investment_approach
+from hedge_fund.signals import ALPHA_MODEL_REGISTRY, get_horizon_days, get_investment_approach
 
 MINIMAL = {
     "schema_version": 2,
@@ -126,6 +126,19 @@ def test_costs_default_to_a_real_cost_model_and_serialize_only_when_changed():
         FundSpec(**{**MINIMAL, "costs": {"spread_bps": -1}})
 
 
+def test_optional_risk_limits_serialize_only_when_set():
+    spec = FundSpec(**MINIMAL)
+    assert spec.risk.max_net_exposure is None and spec.risk.max_drawdown_pct is None and spec.risk.max_adv_pct is None
+    assert set(spec.model_dump()["risk"]) == {"max_position_pct", "max_gross_exposure"}
+    full = FundSpec(**{**MINIMAL, "risk": {**MINIMAL["risk"], "max_net_exposure": 0.3,
+                                            "max_drawdown_pct": 0.2, "max_adv_pct": 0.05}})
+    assert full.model_dump()["risk"]["max_drawdown_pct"] == 0.2
+    assert FundSpec.model_validate_json(full.model_dump_json()) == full
+    for bad in ({"max_drawdown_pct": 1.0}, {"max_adv_pct": 0}, {"max_net_exposure": -0.1}):
+        with pytest.raises(ValidationError):
+            FundSpec(**{**MINIMAL, "risk": {**MINIMAL["risk"], **bad}})
+
+
 def test_typo_key_rejected():
     with pytest.raises(ValidationError):
         FundSpec(**{**MINIMAL, "capitol": 1000})
@@ -224,6 +237,34 @@ def test_all_profiles_are_explicit(name):
 )
 def test_initial_analyst_approaches(name, expected):
     assert get_investment_approach(name) == expected
+
+
+@pytest.mark.parametrize("name", sorted(ALPHA_MODEL_REGISTRY))
+def test_all_horizons_are_explicit(name):
+    assert get_horizon_days(name) > 0
+
+
+def test_initial_analyst_horizons():
+    assert {name: get_horizon_days(name) for name in ALPHA_MODEL_REGISTRY} == {
+        "buffett": 252, "munger": 252, "graham": 252, "lynch": 252, "druckenmiller": 126, "pead": 60,
+    }
+
+
+@pytest.mark.parametrize("horizon", [None, 0, 1.5, "1y"])
+def test_missing_or_invalid_horizon_is_configuration_error(monkeypatch, horizon):
+    class NoHorizon:
+        investment_approach = "long_only"
+
+        def __init__(self):
+            raise AssertionError("must not instantiate")
+
+    if horizon is not None:
+        NoHorizon.horizon_days = horizon
+    monkeypatch.setitem(ALPHA_MODEL_REGISTRY, "nohorizon", NoHorizon)
+    with pytest.raises(ValueError, match="horizon_days"):
+        get_horizon_days("nohorizon")
+    with pytest.raises(ValueError, match="horizon_days"):
+        custom_strategy(["nohorizon"])
 
 
 @pytest.mark.parametrize("profile", [None, "dollar_neutral"])
