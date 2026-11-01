@@ -65,7 +65,7 @@ from hedge_fund.data import CachedDataClient, FDClient
 from hedge_fund.data.krx import open_data_client
 from hedge_fund.data.bars import is_intraday
 from hedge_fund.data.sessions import completed_through
-from hedge_fund.fund import Fund, load_spec, normalize_universe
+from hedge_fund.fund import Fund, load_spec
 from hedge_fund.paper import (
     deploy,
     is_running,
@@ -86,7 +86,7 @@ from hedge_fund.scorecard import score
 from hedge_fund.tui.keys import apply_credentials
 from hedge_fund.tui.report import cost_line
 from hedge_fund.tui.scorecard_view import analyst_table, strategy_table
-from hedge_fund.tui.shared import BACKTEST_WEEKS, money
+from hedge_fund.tui.shared import BACKTEST_WEEKS, money, parse_universe
 
 
 def main() -> None:
@@ -186,14 +186,17 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-_UNIVERSE_HELP = "거래할 종목, 쉼표나 공백으로 구분, 예: AAPL,MSFT,NVDA"
+_UNIVERSE_HELP = "거래할 종목, 쉼표나 공백으로 구분, 예: AAPL,MSFT,NVDA (krx는 005930 또는 삼성전자)"
 
 
-def _universe(text: str, parser: argparse.ArgumentParser) -> list[str]:
+def _universe(text: str, parser: argparse.ArgumentParser, console: Console) -> list[str]:
     try:
-        return normalize_universe(text.replace(",", " ").split())
+        universe, resolved = parse_universe(text)
     except ValueError as exc:
         parser.error(str(exc))
+    if resolved:
+        console.print(f"[dim]종목: {resolved}[/]")
+    return universe
 
 
 def _fund_dir(name: str, parser: argparse.ArgumentParser) -> Path:
@@ -212,7 +215,7 @@ def _fund_dir(name: str, parser: argparse.ArgumentParser) -> Path:
 # ---------------------------------------------------------------------------
 
 def _backtest(args, parser: argparse.ArgumentParser, console: Console) -> None:
-    universe = _universe(args.universe, parser)
+    universe = _universe(args.universe, parser, console)
     try:
         spec = load_spec(args.mandate)
     except ValueError as exc:
@@ -259,7 +262,7 @@ def _backtest(args, parser: argparse.ArgumentParser, console: Console) -> None:
 
 def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
     if args.action == "create":
-        universe = _universe(args.universe, parser)
+        universe = _universe(args.universe, parser, console)
         try:
             validate_fund_name(args.name)
             spec = load_spec(args.mandate)

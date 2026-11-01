@@ -38,7 +38,7 @@ from hedge_fund.backtesting.research import last_universe, save_result
 from hedge_fund.brokers import Fill
 from hedge_fund.data import CachedDataClient, FDClient
 from hedge_fund.data.krx import open_data_client
-from hedge_fund.fund import discover_funds, Fund, FundSpec, normalize_universe
+from hedge_fund.fund import discover_funds, Fund, FundSpec
 from hedge_fund.pipeline import CycleRecord, mark_lookback_start
 from hedge_fund.scorecard import score
 from hedge_fund.signals import ALPHA_MODEL_REGISTRY, LLMAgent
@@ -51,6 +51,7 @@ from hedge_fund.tui.shared import (
     BACKTEST_WEEKS,
     DISPLAY_NAMES,
     fund_label,
+    parse_universe,
     render_area_chart,
     universe_presets,
     valid_date,
@@ -206,12 +207,13 @@ class BacktestScreen(Screen):
             self.notify(f"종료일은 {start} 이후여야 합니다.", severity="error")
             return
         try:
-            universe = normalize_universe(
-                self.query_one("#bt-tickers", Input).value.replace(",", " ").split())
-        except ValueError:
-            self.notify("종목을 하나 이상 입력하세요.", severity="error")
+            universe, resolved = parse_universe(self.query_one("#bt-tickers", Input).value)
+        except ValueError as exc:
+            self.notify(str(exc), severity="error")
             self.query_one("#bt-tickers", Input).focus()
             return
+        if resolved:
+            self.notify(resolved, title="종목")
         assert self._spec is not None
 
         def resume() -> None:

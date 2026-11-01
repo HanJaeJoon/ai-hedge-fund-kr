@@ -74,7 +74,7 @@ class KRXClient:
         self._dir = CACHE_DIR / "dart"
         self._dir.mkdir(parents=True, exist_ok=True)
         self._prices: dict[str, list[Price]] = {}
-        self._corp: dict[str, str] | None = None
+        self._corp: list[tuple[str, str, str]] | None = None  # (stock_code, corp_code, corp_name)
 
     def __enter__(self) -> KRXClient:
         return self
@@ -136,7 +136,7 @@ class KRXClient:
             path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         return data
 
-    def _corp_code(self, ticker: str) -> str:
+    def _listings(self) -> list[tuple[str, str, str]]:
         if self._corp is None:
             path = self._dir / "corpCode.xml"
             if not path.exists():
@@ -146,14 +146,37 @@ class KRXClient:
                 with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
                     path.write_bytes(zf.read(zf.namelist()[0]))
             root = ET.parse(path).getroot()
-            self._corp = {
-                el.findtext("stock_code").strip(): el.findtext("corp_code")
+            self._corp = [
+                (el.findtext("stock_code").strip(), el.findtext("corp_code"), el.findtext("corp_name", "").strip())
                 for el in root.iter("list") if el.findtext("stock_code", "").strip()
-            }
-        try:
-            return self._corp[ticker]
-        except KeyError:
-            raise KRXClientError(f"{ticker}: DART에 등록된 KRX 상장 종목 코드가 아닙니다") from None
+            ]
+        return self._corp
+
+    def _corp_code(self, ticker: str) -> str:
+        for stock, corp, _ in self._listings():
+            if stock == ticker:
+                return corp
+        raise KRXClientError(f"{ticker}: DART에 등록된 KRX 상장 종목 코드가 아닙니다")
+
+    def resolve(self, entry: str) -> tuple[str, str]:
+        """(stock code, company name) for *entry*: a code as is, else the one
+        listing whose name matches exactly, or failing that the only one
+        containing it."""
+        if _CODE.fullmatch(entry):
+            return entry, entry
+        key = entry.replace(" ", "").casefold()
+        if key in _ALIASES:
+            key = _ALIASES[key].casefold()
+        names = [(stock, name) for stock, _, name in self._listings()]
+        hits = ([n for n in names if n[1].replace(" ", "").casefold() == key]
+                or [n for n in names if key in n[1].replace(" ", "").casefold()])
+        if len(hits) == 1:
+            return hits[0]
+        if not hits:
+            raise ValueError(f"{entry}: 이름이 일치하는 상장사가 없습니다. DART 공식 회사명이나 종목코드로 입력하세요")
+        shown = ", ".join(f"{name}({stock})" for stock, name in hits[:5])
+        more = f" 외 {len(hits) - 5}개" if len(hits) > 5 else ""
+        raise ValueError(f"{entry}: 여러 회사가 해당됩니다. {shown}{more} 중 정확한 이름이나 코드로 입력하세요")
 
     def _report(self, corp: str, year: int, code: str) -> dict | None:
         """Flows (cumulative YTD), balances, filing date for one report; None if not filed."""
@@ -293,6 +316,25 @@ def _sub(a, b) -> float | None:
 
 def _growth(cur, prev) -> float | None:
     return cur / prev - 1 if cur is not None and prev else None
+
+
+_CODE = re.compile(r"[0-9][0-9A-Z]{5}")  # 005930, and the newer alphanumeric codes like 0001A0
+# Everyday names that are not, or not uniquely, in DART's official names (현대차 alone hits 현대차증권).
+_ALIASES = {"현대차": "현대자동차", "네이버": "NAVER", "포스코홀딩스": "POSCO홀딩스", "lg엔솔": "LG에너지솔루션"}
+
+
+def resolve_universe(entries: list[str]) -> tuple[list[str], list[str]]:
+    """Under krx, company names become stock codes; codes and other markets
+    pass through. Also returns one "삼성전자 005930" note per looked-up name."""
+    if not krx_selected() or all(_CODE.fullmatch(e.strip().upper()) for e in entries):
+        return entries, []
+    try:
+        with KRXClient() as client:
+            pairs = [(e, *client.resolve(e.strip().upper())) for e in entries if e.strip()]
+    except (KRXClientError, requests.RequestException) as exc:
+        raise ValueError(f"회사명으로 종목을 찾지 못했습니다: {exc}") from exc
+    notes = [f"{name} {code}" for entry, code, name in pairs if code != entry.strip().upper()]
+    return [code for _, code, _ in pairs], notes
 
 
 def krx_selected() -> bool:

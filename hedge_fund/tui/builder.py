@@ -38,7 +38,6 @@ from hedge_fund.fund import (
     FundSpec,
     load_strategy,
     MIN_INTERVAL_SECONDS,
-    normalize_universe,
     save_spec,
     StrategySpec,
     TradingWindow,
@@ -69,6 +68,7 @@ from hedge_fund.tui.shared import (
     strategy_description,
     STRATEGY_DIR,
     strategy_kind,
+    parse_universe,
     universe_presets,
 )
 
@@ -471,10 +471,12 @@ class BuilderScreen(Screen):
     @on(Input.Submitted, "#tickers-input")
     def _submit_tickers(self, event: Input.Submitted) -> None:
         try:
-            self._state["universe"] = normalize_universe(event.value.replace(",", " ").split())
-        except ValueError:
-            self.notify("종목을 하나 이상 입력하세요.", severity="error")
+            self._state["universe"], resolved = parse_universe(event.value)
+        except ValueError as exc:
+            self.notify(str(exc), severity="error")
             return
+        if resolved:
+            self.notify(resolved, title="종목")
         self._finish_build()
 
     # ---- finish -----------------------------------------------------------

@@ -17,8 +17,8 @@ from rich.cells import cell_len
 from rich.text import Text
 
 from hedge_fund.data.bars import is_intraday
-from hedge_fund.data.krx import krx_selected
-from hedge_fund.fund import FundSpec, PortfolioMode, StrategySpec
+from hedge_fund.data.krx import krx_selected, resolve_universe
+from hedge_fund.fund import FundSpec, normalize_universe, PortfolioMode, StrategySpec
 from hedge_fund.signals import ALPHA_MODEL_REGISTRY, get_investment_approach, LLMAgent
 
 try:
@@ -133,6 +133,13 @@ def strategy_kind(strategy: StrategySpec) -> str:
            for m in strategy.models):
         return "discretionary"
     return "systematic"
+
+
+def parse_universe(text: str) -> tuple[list[str], str]:
+    """Typed tickers, split on commas or spaces; under krx, company names are
+    looked up. Returns the universe and what the names resolved to ("" if none)."""
+    codes, notes = resolve_universe(text.replace(",", " ").split())
+    return normalize_universe(codes), " · ".join(notes)
 
 
 def universe_presets() -> list[str]:
