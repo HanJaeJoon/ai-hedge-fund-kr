@@ -80,13 +80,13 @@ def test_deploy_lays_out_the_fund_directory(tmp_path, SPEC):
     assert (directory / "ledger").is_dir() and Ledger(directory).sessions() == []
     assert list_deployed(tmp_path) == [directory]
     assert list_deployed(tmp_path / "nowhere") == []
-    with pytest.raises(FileExistsError, match="already exists"):
+    with pytest.raises(FileExistsError, match="이미 있습니다"):
         deploy("alpha", SPEC, ["AAPL"], root=tmp_path)
 
 
 @pytest.mark.parametrize("bad", ["", ".", "..", "a/b", "-lead", ".hidden", "sp ace"])
 def test_deploy_rejects_unsafe_names(tmp_path, bad, SPEC):
-    with pytest.raises(ValueError, match="invalid fund name"):
+    with pytest.raises(ValueError, match="잘못된 펀드 이름"):
         validate_fund_name(bad)
     with pytest.raises(ValueError):
         deploy(bad, SPEC, ["AAPL"], root=tmp_path)
@@ -125,8 +125,8 @@ def test_next_session_of_a_minute_fund_is_the_latest_bar_passed_and_asks_nothing
     assert next_session(None, spec, "2024-06-04T13:05:00", now=lambda: at("13:07:30")) is None
     assert next_session(None, spec, "2024-06-04T13:05:00", now=lambda: at("13:10:00")) == "2024-06-04T13:10:00"
     assert next_session(None, spec, "2024-06-04T13:10:00", now=lambda: at("18:00:00")) is None  # the day is done
-    assert following_session(spec, "2024-06-04T13:10:00", at("18:00:00")) == "Wed 13:00:00 ET"
-    assert following_session(SPEC, "2024-06-07", at("18:00:00")) == "2024-06-10 close"  # a Friday: Monday
+    assert following_session(spec, "2024-06-04T13:10:00", at("18:00:00")) == "수요일 13:00:00 ET"
+    assert following_session(SPEC, "2024-06-07", at("18:00:00")) == "2024-06-10 종가"  # a Friday: Monday
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ def test_ticks_advance_one_session_each_and_match_the_backtest(tmp_path, clock, 
     monday = _tick(directory)
     assert monday.session == "2024-06-03" and monday.rebalance
     assert monday.decision is not None and monday.executed is None
-    with pytest.raises(NothingDue, match="after 2024-06-03"):
+    with pytest.raises(NothingDue, match="2024-06-03 이후"):
         _tick(directory)
 
     clock("2024-06-06")  # two closes have gone by; ticks catch up one at a time
@@ -167,7 +167,7 @@ def test_explicit_session_is_idempotent_and_must_be_the_next_one(tmp_path, clock
     assert _tick(directory, session="2024-06-05") == first  # no-op, nothing appended
     assert Ledger(directory).sessions() == ["2024-06-05"]
     clock("2024-06-11")
-    with pytest.raises(ValueError, match="not the next unrecorded session \\(2024-06-06\\)"):
+    with pytest.raises(ValueError, match="다음 미기록 세션\\(2024-06-06\\)이 아닙니다"):
         _tick(directory, session="2024-06-10")
     assert _tick(directory, session="2024-06-06").session == "2024-06-06"
 
@@ -177,7 +177,7 @@ def test_redo_runs_the_latest_session_again_and_replaces_its_record(tmp_path, cl
     clock("2024-06-04")
     directory = deploy("alpha", spec, ["AAPL"], root=tmp_path)
     ledger = Ledger(directory)
-    with pytest.raises(NothingDue, match="nothing to run again"):
+    with pytest.raises(NothingDue, match="다시 실행할 것이 없습니다"):
         redo(directory, FakeDataClient(SERIES), build_fund=build_fund)
     _tick(directory)                         # 06-03: decided, long AAPL
     clock("2024-06-05")

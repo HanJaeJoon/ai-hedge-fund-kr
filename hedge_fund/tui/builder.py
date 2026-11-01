@@ -7,6 +7,7 @@ from math import isfinite
 from pathlib import Path
 from typing import Literal
 
+from rich.cells import cell_len
 from rich.console import Group
 from rich.text import Text
 from textual import on
@@ -30,6 +31,7 @@ from hedge_fund import paths
 from hedge_fund.data.bars import bars_per_day
 from hedge_fund.data.sessions import NEW_YORK
 from hedge_fund.fund import (
+    cadence_name,
     custom_strategy,
     format_interval,
     FundSpec,
@@ -70,16 +72,21 @@ CUSTOM = "custom"  # sentinel value in the strategy list for "build your own"
 
 
 _NEWS_SENTENCE = (
-    "Analysts are asked again at every bar and see new headlines as they land (the news "
-    "feed refreshes about every 10 minutes); a bar with nothing new re-marks the book and "
-    "fills what is pending, at no extra model cost."
+    "애널리스트는 봉마다 다시 분석하고 새 헤드라인을 들어오는 대로 봅니다(뉴스 피드는 "
+    "약 10분마다 갱신). 새 소식이 없는 봉은 보유 현황을 다시 평가하고 대기 중인 주문을 "
+    "체결하며, 모델 비용은 추가로 들지 않습니다."
 )
 
 
-_WINDOW_NOTE = f"anywhere inside US extended hours ({EARLIEST_WINDOW}–{LATEST_WINDOW})"
+_WINDOW_NOTE = f"미국 확장 거래 시간({EARLIEST_WINDOW}–{LATEST_WINDOW}) 안에서 정할 수 있습니다"
 
 
 _FAST_SECONDS = 10  # under this, one price request per ticker (~1s each) may not fit in a bar
+
+
+def _pad(text: str, width: int) -> str:
+    """Left-align to *width* terminal cells; Korean takes two cells per character."""
+    return text + " " * max(0, width - cell_len(text))
 
 
 class BuilderScreen(Screen):
@@ -98,26 +105,26 @@ class BuilderScreen(Screen):
 
     CADENCES = ["minute", "daily", "weekly", "monthly"]
     CADENCE_TAGLINES = {
-        "minute": "intraday — set the interval and trading window",
-        "daily": "one decision at each close",
-        "weekly": "the fundamentals default",
-        "monthly": "slow-turn — one decision a month",
+        "minute": "장중 - 간격과 거래 시간대를 설정",
+        "daily": "종가마다 한 번 결정",
+        "weekly": "펀더멘털 전략의 기본값",
+        "monthly": "저회전 - 한 달에 한 번 결정",
     }
 
     BINDINGS = [
-        Binding("escape", "back", "back"),
-        Binding("enter", "confirm_list", "continue", priority=True),
-        Binding("a", "toggle_all", "toggle all"),
+        Binding("escape", "back", "뒤로"),
+        Binding("enter", "confirm_list", "계속", priority=True),
+        Binding("a", "toggle_all", "전체 선택/해제"),
     ]
 
     def __init__(self, mode: Literal["paper", "backtest"] = "backtest") -> None:
         super().__init__()
         self.mode = mode
         self.STEP_IDS = ["step-name", "step-strategies", "step-capital", "step-cadence"]
-        self.STEP_TITLES = ["Name", "Strategies", "Capital", "Cadence"]
+        self.STEP_TITLES = ["이름", "전략", "자본금", "주기"]
         if mode == "paper":
             self.STEP_IDS.append("step-tickers")
-            self.STEP_TITLES.append("Tickers")
+            self.STEP_TITLES.append("종목")
         # Library sorted like the CLI: discretionary pods first, then by name.
         self._library = sorted(
             (load_strategy(p) for p in STRATEGY_DIR.glob("*.yaml")),
@@ -130,20 +137,20 @@ class BuilderScreen(Screen):
     def compose(self) -> ComposeResult:
         with Horizontal(id="builder"):
             with Vertical(id="rail"):
-                yield Static(Text("BUILD A FUND", style=MUTED), classes="rail-title")
+                yield Static(Text("펀드 만들기", style=MUTED), classes="rail-title")
                 for i in range(len(self.STEP_IDS)):
                     yield Static("", id=f"rail-{i}", classes="rail-step")
             with ContentSwitcher(initial="step-name", id="panes"):
                 with Vertical(id="step-name", classes="pane"):
-                    yield Label("Name your fund", classes="q")
+                    yield Label("펀드 이름", classes="q")
                     yield Input(value="ai-hedge-fund", id="name-input")
                 with Vertical(id="step-strategies", classes="pane"):
-                    yield Label("Select your strategies", classes="q")
+                    yield Label("전략 선택", classes="q")
                     yield SelectionList(
                         Selection(
                             Text.assemble(
-                                ("Build your own      ", "bold"),
-                                ("pick individual agents", MUTED),
+                                (_pad("직접 구성", 20), "bold"),
+                                ("에이전트를 하나씩 고르기", MUTED),
                             ),
                             CUSTOM,
                         ),
@@ -154,12 +161,12 @@ class BuilderScreen(Screen):
                         id="strategy-list",
                     )
                     yield Static(
-                        Text("space to toggle · a for all · enter to continue",
+                        Text("space 선택/해제 · a 전체 · enter 계속",
                              style=MUTED),
                         classes="hint",
                     )
                 with Vertical(id="step-agents", classes="pane"):
-                    yield Label("Staff your desk", classes="q")
+                    yield Label("데스크 구성", classes="q")
                     yield SelectionList(
                         *(
                             Selection(self._agent_prompt(key, cls), key)
@@ -168,66 +175,66 @@ class BuilderScreen(Screen):
                         id="agent-list",
                     )
                     yield Static(
-                        Text("space to toggle · a for all · enter to continue",
+                        Text("space 선택/해제 · a 전체 · enter 계속",
                              style=MUTED),
                         classes="hint",
                     )
                 with VerticalScroll(id="step-capital", classes="pane"):
                     yield Static("", id="strategy-summary")
-                    yield Label("Starting capital ($)", classes="q")
+                    yield Label("초기 자본금($)", classes="q")
                     yield Input(
                         value=f"{DEFAULT_CAPITAL:.0f}", type="number",
                         id="capital-input",
                     )
                 with Vertical(id="step-cadence", classes="pane"):
-                    yield Label("Rebalance cadence", classes="q")
+                    yield Label("리밸런싱 주기", classes="q")
                     yield OptionList(
-                        *(Option(Text.assemble((f"{cadence:<10}", "bold"),
+                        *(Option(Text.assemble((_pad(cadence_name(cadence), 10), "bold"),
                                                (self.CADENCE_TAGLINES[cadence], MUTED)))
                           for cadence in self.CADENCES),
                         id="cadence-list",
                     )
                 with VerticalScroll(id="step-interval", classes="pane"):
-                    yield Label("Interval between sessions (minutes)", classes="q")
+                    yield Label("세션 간격(분)", classes="q")
                     yield Input(value="1", id="interval-input")
                     yield Static("", id="interval-line")
                     yield Static(Text(_NEWS_SENTENCE, style=MUTED), classes="hint")
                 with VerticalScroll(id="step-window", classes="pane"):
-                    yield Label("Trading window (ET)", classes="q")
+                    yield Label("거래 시간대(ET)", classes="q")
                     with Horizontal(id="window-inputs"):
                         yield Input(value=TradingWindow().start, id="window-start-input")
-                        yield Static(Text("  to  ", style=MUTED), classes="window-sep")
+                        yield Static(Text("  ~  ", style=MUTED), classes="window-sep")
                         yield Input(value=TradingWindow().end, id="window-end-input")
                     yield Static("", id="window-line")
                     yield Static(
-                        Text(f"New York time, {_WINDOW_NOTE}. The first and last bar fall exactly on these.",
+                        Text(f"뉴욕 시간입니다. {_WINDOW_NOTE}. 첫 봉과 마지막 봉이 정확히 이 시각에 놓입니다.",
                              style=MUTED),
                         classes="hint",
                     )
                 with Vertical(id="step-tickers", classes="pane"):
-                    yield Label("What does it trade?", classes="q")
+                    yield Label("거래할 종목", classes="q")
                     yield Input(
-                        placeholder=f"e.g. {', '.join(UNIVERSE_PRESETS[:5])}",
+                        placeholder=f"예: {', '.join(UNIVERSE_PRESETS[:5])}",
                         id="tickers-input",
                     )
                     yield Static(
-                        Text("the same tickers every session · enter to build", style=MUTED),
+                        Text("매 세션 같은 종목 · enter 만들기", style=MUTED),
                         classes="hint",
                     )
                 with VerticalScroll(id="step-done", classes="pane"):
                     yield Static("", id="done-summary")
                     if self.mode == "paper":
                         yield OptionList(
-                            Option("▶  Run its first session", id="go-run"),
+                            Option("▶  첫 세션 실행", id="go-run"),
                             None,
-                            Option("Back", id="go-back"),
+                            Option("뒤로", id="go-back"),
                             id="done-menu",
                         )
                     else:
                         yield OptionList(
-                            Option("▶  Backtest it", id="go-backtest"),
+                            Option("▶  백테스트", id="go-backtest"),
                             None,
-                            Option("Back", id="go-back"),
+                            Option("뒤로", id="go-back"),
                             id="done-menu",
                         )
         yield Footer()
@@ -348,7 +355,7 @@ class BuilderScreen(Screen):
         if self._pane() == "step-strategies":
             picked = list(self.query_one("#strategy-list", SelectionList).selected)
             if not picked:
-                self.notify("Select at least one strategy.", severity="error")
+                self.notify("전략을 하나 이상 선택하세요.", severity="error")
                 return
             self._state["library_strategies"] = [
                 self._library[i] for i in picked if i != CUSTOM
@@ -361,7 +368,7 @@ class BuilderScreen(Screen):
         else:  # step-agents
             keys = list(self.query_one("#agent-list", SelectionList).selected)
             if not keys:
-                self.notify("Pick at least one agent.", severity="error")
+                self.notify("에이전트를 하나 이상 선택하세요.", severity="error")
                 return
             self._state["strategies"] = self._state["library_strategies"] + [custom_strategy(keys)]
         self._goto("step-capital")
@@ -374,7 +381,7 @@ class BuilderScreen(Screen):
                 raise ValueError("capital must be positive")
             self._state["capital"] = capital
         except ValueError:
-            self.notify("Enter a positive starting capital.", severity="error")
+            self.notify("0보다 큰 초기 자본금을 입력하세요.", severity="error")
             return
         self._goto("step-cadence")
 
@@ -458,7 +465,7 @@ class BuilderScreen(Screen):
         try:
             self._state["universe"] = normalize_universe(event.value.replace(",", " ").split())
         except ValueError:
-            self.notify("Enter at least one ticker.", severity="error")
+            self.notify("종목을 하나 이상 입력하세요.", severity="error")
             return
         self._finish_build()
 
@@ -485,14 +492,14 @@ class BuilderScreen(Screen):
         # the way in, but something may have taken it since. Paper mode needs
         # both the saved definition and the fund directory to be free.
         if self.mode == "paper" and (paths.PAPER_DIR / spec.name).exists():
-            self.notify("A paper fund with that name already exists. Choose a different name.",
+            self.notify("같은 이름의 모의투자 펀드가 이미 있습니다. 다른 이름을 고르십시오.",
                         severity="error")
             self._goto("step-name")
             return
         try:
             path = save_spec(spec, paths.MANDATES_DIR)
         except FileExistsError:
-            self.notify("A fund with that name already exists. Choose a different name.",
+            self.notify("같은 이름의 펀드가 이미 있습니다. 다른 이름을 고르십시오.",
                         severity="error")
             self._goto("step-name")
             return
@@ -504,44 +511,44 @@ class BuilderScreen(Screen):
             (f"  ·  {staff}  ·  ${spec.capital:,.0f}  ·  {cadence_identity(spec)}", MUTED),
         )
         if replaced:
-            self.notify(f"Replaced the previous {spec.name}.", severity="warning")
+            self.notify(f"기존 {spec.name} 펀드를 교체했습니다.", severity="warning")
         if self.mode == "paper":
             universe = self._state["universe"]
             directory = deploy(spec.name, spec, universe, root=paths.PAPER_DIR)
             menu = self.query_one("#done-menu", OptionList)
             menu.clear_options()
             menu.add_options([
-                Option("▶  Run its first session", id="go-run"),
+                Option("▶  첫 세션 실행", id="go-run"),
                 None,
-                Option("Back", id="go-back"),
+                Option("뒤로", id="go-back"),
             ])
             menu.highlighted = 0
             first = (
-                f"Its first session marks the book at the {'current bar' if intraday else 'latest completed close'} and "
-                f"makes the first decision; the {'next bar' if intraday else 'session after'} executes it. "
-                "Run it a session at a time, or leave a runner on it from the paper screen (space)."
+                f"첫 세션은 {'현재 봉' if intraday else '가장 최근 종가'} 기준으로 보유 현황을 평가하고 "
+                f"첫 결정을 내리며, {'다음 봉' if intraday else '다음 세션'}에서 그 결정을 실행합니다. "
+                "한 세션씩 실행하거나, 모의투자 화면에서 러너를 켜 둘 수 있습니다(space)."
             )
             self.query_one("#done-summary", Static).update(Group(
-                Text.assemble((spec.name, f"bold {GREEN}"), (" is live.", f"bold {BRIGHT}")),
+                Text.assemble((spec.name, f"bold {GREEN}"), (" 펀드 가동 시작", f"bold {BRIGHT}")),
                 Text(""),
                 identity,
                 Text(" ".join(universe), style=MUTED),
                 Text(""),
-                Text.assemble(("✓ ", f"bold {GREEN}"), ("Ledger and book at ", MUTED),
+                Text.assemble(("✓ ", f"bold {GREEN}"), ("원장과 보유 현황: ", MUTED),
                               (str(directory), MUTED)),
-                Text.assemble(("✓ ", f"bold {GREEN}"), ("Definition saved to ", MUTED),
+                Text.assemble(("✓ ", f"bold {GREEN}"), ("정의 저장 위치: ", MUTED),
                               (str(path), MUTED)),
                 Text(""),
                 Text(first, style=MUTED),
             ))
         else:
             self.query_one("#done-summary", Static).update(Group(
-                Text.assemble(("✓ ", f"bold {GREEN}"), ("Saved fund to ", TEXT),
+                Text.assemble(("✓ ", f"bold {GREEN}"), ("펀드 저장 위치: ", TEXT),
                               (str(path), f"bold {BRIGHT}")),
                 Text(""),
                 identity,
                 Text(""),
-                Text("Pick the tickers and the window when you backtest it.", style=MUTED),
+                Text("종목과 기간은 백테스트할 때 고릅니다.", style=MUTED),
                 *(Text(f"{s.title}: {strategy_description(s)}", style=MUTED) for s in spec.strategies),
             ))
         self._goto("step-done")
@@ -596,26 +603,26 @@ class BuilderScreen(Screen):
     def _short_cadence(self) -> str | None:
         cadence = self._state.get("rebalance")
         if cadence != "minute":
-            return cadence
+            return cadence_name(cadence) if cadence else None
         if self._pane() in ("step-interval", "step-window") or "window" not in self._state:
             return None  # still being set
         seconds = int(round(self._state["interval"] * 60))
-        return f"every {format_interval(seconds)}\n  {self._state['window'].label}"
+        return f"{format_interval(seconds)}마다\n  {self._state['window'].label}"
 
     @staticmethod
     def _strategy_prompt(strategy: StrategySpec) -> Text:
         staff = ", ".join(
             SHORT_NAMES.get(m.name, m.name) for m in strategy.models
         )
-        return Text.assemble((f"{strategy.title:<20}", "bold"), (f"{MODE_LABELS[strategy.blend.mode]} · {staff}", MUTED))
+        return Text.assemble((_pad(strategy.title, 20), "bold"), (f"{MODE_LABELS[strategy.blend.mode]} · {staff}", MUTED))
 
     @staticmethod
     def _agent_prompt(key: str, cls: type) -> Text:
         name = DISPLAY_NAMES.get(key, key)
-        tag = "" if issubclass(cls, LLMAgent) else "  quant"
+        tag = "" if issubclass(cls, LLMAgent) else "  퀀트"
         horizon = horizon_label(get_horizon_days(key))
-        return Text.assemble((f"{name:<24}", "bold"),
-                             (f"{MODE_LABELS[get_investment_approach(key)]} · {horizon} view{tag}", MUTED))
+        return Text.assemble((_pad(name, 24), "bold"),
+                             (f"{MODE_LABELS[get_investment_approach(key)]} · {horizon} 관점{tag}", MUTED))
 
 
 def parse_interval(text: str) -> float:
@@ -623,13 +630,13 @@ def parse_interval(text: str) -> float:
     try:
         minutes = float(text.strip())
     except ValueError:
-        raise ValueError("Enter the interval in minutes: 1, 5, or 0.5 for every 30 seconds.") from None
+        raise ValueError("간격은 분 단위로 입력하세요(1, 5, 30초마다는 0.5).") from None
     if not isfinite(minutes) or minutes <= 0:
-        raise ValueError("Enter the interval in minutes: 1, 5, or 0.5 for every 30 seconds.")
+        raise ValueError("간격은 분 단위로 입력하세요(1, 5, 30초마다는 0.5).")
     if round(minutes * 60) < MIN_INTERVAL_SECONDS:
         raise ValueError(
-            f"The shortest interval is {MIN_INTERVAL_SECONDS}s: sessions are stamped to the second. "
-            "Enter 0.0167 for every second."
+            f"최소 간격은 {MIN_INTERVAL_SECONDS}초입니다. 세션 시각은 초 단위로 기록됩니다. "
+            "1초마다는 0.0167을 입력하세요."
         )
     return minutes
 
@@ -637,7 +644,7 @@ def parse_interval(text: str) -> float:
 def interval_line(minutes: float, window: TradingWindow) -> str:
     """`every 1m · 09:30–16:00 ET · 391 sessions a day`"""
     seconds = int(round(minutes * 60))
-    return f"every {format_interval(seconds)} · {window.label} · {bars_per_day(seconds, window):,} sessions a day"
+    return f"{format_interval(seconds)}마다 · {window.label} · 하루 {bars_per_day(seconds, window):,}세션"
 
 
 def fast_caveat(minutes: float) -> str | None:
@@ -647,8 +654,8 @@ def fast_caveat(minutes: float) -> str | None:
     seconds = int(round(minutes * 60))
     if seconds >= _FAST_SECONDS:
         return None
-    return (f"Under {_FAST_SECONDS}s a bar may not fit its price requests (about a second per ticker); "
-            "bars the fund cannot reach in time are skipped and logged as gaps.")
+    return (f"{_FAST_SECONDS}초 미만에서는 한 봉 안에 가격 요청(종목당 약 1초)이 다 끝나지 않을 수 있습니다. "
+            "제때 처리하지 못한 봉은 건너뛰고 공백으로 기록합니다.")
 
 
 def window_lines(window: TradingWindow, minutes: float = 1.0, *,
@@ -664,8 +671,8 @@ def window_lines(window: TradingWindow, minutes: float = 1.0, *,
     if (start_local.hour, start_local.minute) != (start_ny.hour, start_ny.minute) \
             or (end_local.hour, end_local.minute) != (end_ny.hour, end_ny.minute):
         day_shift = (end_local.date() - end_ny.date()).days
-        suffix = {1: " (the next day)", -1: " (the day before)"}.get(day_shift, "")
-        lines.append(f"that is {start_local:%H:%M}–{end_local:%H:%M} {start_local:%Z} where you are{suffix}")
+        suffix = {1: " (다음 날)", -1: " (전날)"}.get(day_shift, "")
+        lines.append(f"현지 시간 {start_local:%H:%M}–{end_local:%H:%M} {start_local:%Z}{suffix}")
     return lines
 
 

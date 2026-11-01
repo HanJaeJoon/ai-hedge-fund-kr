@@ -95,9 +95,9 @@ def apply_limits(
        it can never re-violate the caps before it.
     """
     if not isfinite(limits.max_position_pct) or not isfinite(limits.max_gross_exposure):
-        raise ValueError("risk limits must be finite")
+        raise ValueError("리스크 한도는 유한한 값이어야 합니다")
     if not 0 < limits.max_position_pct <= 1 or limits.max_gross_exposure <= 0:
-        raise ValueError("risk limits must be positive, with max_position_pct at most 1")
+        raise ValueError("리스크 한도는 양수여야 하고 max_position_pct는 1 이하여야 합니다")
     for ticker, weight in weights.items():
         if not isfinite(weight):
             raise ValueError(f"{ticker}: target weight must be finite")

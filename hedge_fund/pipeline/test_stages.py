@@ -268,7 +268,7 @@ def test_universe_is_a_run_time_argument():
 
 def test_empty_universe_raises():
     fund = Fund(_spec(), models={"solo": [FakeAnalyst("a")]})
-    with pytest.raises(ValueError, match="universe is empty"):
+    with pytest.raises(ValueError, match="유니버스가 비어"):
         _cycle(fund, "2024-06-03", SimBroker(cash=100_000.0),
                   FakeDataClient(CLOSES), [])
 

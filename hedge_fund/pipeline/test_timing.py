@@ -188,7 +188,7 @@ def test_current_new_york_day_is_excluded_even_after_close(monkeypatch, hour):
     fund, analyst = make_fund()
     broker = SimBroker(10_000)
     broker.place_order = Mock()
-    with pytest.raises(ValueError, match="not complete"):
+    with pytest.raises(ValueError, match="아직 끝나지 않았습니다"):
         advance(fund, FundState.initial(10_000), MONDAY, broker, market(), ["A"])
     with pytest.raises(ValueError, match="incomplete"):
         assess_fund(fund, MONDAY, market(), ["A"])

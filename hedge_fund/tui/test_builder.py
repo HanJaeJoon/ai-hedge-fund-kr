@@ -23,10 +23,10 @@ from hedge_fund.tui.shared import cadence_identity, MODE_LABELS, strategy_descri
 
 def test_mixed_description_identifies_short_analysts():
     description = strategy_description(make_spec().strategies[0])
-    assert "Short ideas must be supported by Druckenmiller." in description
-    assert "Long-only analysts contribute ownership views." in description
-    assert "Long-only · 1y view" in builder.BuilderScreen._agent_prompt("buffett", ALPHA_MODEL_REGISTRY["buffett"]).plain
-    assert "Long/short · 60d view  quant" in builder.BuilderScreen._agent_prompt("pead", ALPHA_MODEL_REGISTRY["pead"]).plain
+    assert "숏 아이디어는 Druckenmiller의 지지가 있어야 합니다." in description
+    assert "롱온리 애널리스트는 보유 의견만 냅니다." in description
+    assert "롱온리 · 1년 관점" in builder.BuilderScreen._agent_prompt("buffett", ALPHA_MODEL_REGISTRY["buffett"]).plain
+    assert "롱숏 · 60일 관점  퀀트" in builder.BuilderScreen._agent_prompt("pead", ALPHA_MODEL_REGISTRY["pead"]).plain
 
 
 @pytest.mark.parametrize("names,mode", [
@@ -115,7 +115,7 @@ def test_builder_paper_mode_builds_a_live_fund_and_refuses_taken_names():
             await pilot.press("end", "enter")  # the + row
             screen = app.screen
             assert isinstance(screen, builder.BuilderScreen) and screen.mode == "paper"
-            assert screen.STEP_TITLES == ["Name", "Strategies", "Capital", "Cadence", "Tickers"]
+            assert screen.STEP_TITLES == ["이름", "전략", "자본금", "주기", "종목"]
             for taken in ("taken", "saved"):  # paper funds and saved definitions both count
                 screen.query_one("#name-input", Input).value = taken
                 await pilot.press("enter")
@@ -136,7 +136,7 @@ def test_builder_paper_mode_builds_a_live_fund_and_refuses_taken_names():
             await pilot.press("enter")
             await pilot.pause()
             assert screen.query_one("#panes", ContentSwitcher).current == "step-done"
-            assert "alpha is live." in render(screen.query_one("#done-summary", Static).content)
+            assert "alpha 펀드 가동 시작" in render(screen.query_one("#done-summary", Static).content)
             menu = screen.query_one("#done-menu", OptionList)
             assert [menu.get_option_at_index(i).id for i in range(menu.option_count)] == ["go-run", "go-back"]
             deployed = load_deployed(paths.PAPER_DIR / "alpha")
@@ -168,49 +168,49 @@ def test_builder_minute_path_sets_interval_and_window_and_offers_start_running()
             cadences = screen.query_one("#cadence-list", OptionList)
             assert cadences.highlighted == builder.BuilderScreen.CADENCES.index("weekly")  # the default, still
             prompts = [render(cadences.get_option_at_index(i).prompt) for i in range(cadences.option_count)]
-            assert prompts[0].startswith("minute") and "set the interval and trading window" in prompts[0]
-            assert "one decision at each close" in prompts[1] and "news-speed" not in "".join(prompts)
+            assert prompts[0].startswith("분 단위") and "간격과 거래 시간대를 설정" in prompts[0]
+            assert "종가마다 한 번 결정" in prompts[1] and "news-speed" not in "".join(prompts)
             cadences.highlighted = 0
             await pilot.press("enter")
             assert screen.query_one("#panes", ContentSwitcher).current == "step-interval"
-            assert "every 1m · 09:30–16:00 ET · 391 sessions a day" in render(
+            assert "1분마다 · 09:30–16:00 ET · 하루 391세션" in render(
                 screen.query_one("#interval-line", Static).content)
 
             interval = screen.query_one("#interval-input", Input)
             interval.value = "0.005"
             await pilot.pause()
             line = render(screen.query_one("#interval-line", Static).content)
-            assert "shortest interval is 1s" in line and "stamped to the second" in line
+            assert "최소 간격은 1초" in line and "초 단위로 기록" in line
             await pilot.press("enter")  # refused; still here
             assert screen.query_one("#panes", ContentSwitcher).current == "step-interval"
             interval.value = "0.0167"  # every second: allowed, with a caveat about keeping up
             await pilot.pause()
             line = render(screen.query_one("#interval-line", Static).content)
-            assert "every 1s · 09:30–16:00 ET · 23,401 sessions a day" in line and "logged as gaps" in line
+            assert "1초마다 · 09:30–16:00 ET · 하루 23,401세션" in line and "공백으로 기록" in line
             interval.value = "0.5"
             await pilot.pause()
             line = render(screen.query_one("#interval-line", Static).content)
-            assert "every 30s · 09:30–16:00 ET · 781 sessions a day" in line and "gaps" not in line
+            assert "30초마다 · 09:30–16:00 ET · 하루 781세션" in line and "공백" not in line
             await pilot.press("enter")
             assert screen.query_one("#panes", ContentSwitcher).current == "step-window"
-            assert "Cadence" in render(screen.query_one("#rail-3", Static).content)
+            assert "주기" in render(screen.query_one("#rail-3", Static).content)
 
             start, end = screen.query_one("#window-start-input", Input), screen.query_one("#window-end-input", Input)
             end.value = "21:00"
             await pilot.pause()
-            assert "outside US extended hours" in render(screen.query_one("#window-line", Static).content)
+            assert "미국 확장 거래 시간" in render(screen.query_one("#window-line", Static).content)
             await pilot.press("enter")  # start's enter moves to end
             await pilot.press("enter")  # end's enter: refused
             assert screen.query_one("#panes", ContentSwitcher).current == "step-window"
             start.value, end.value = "09:00", "12:00"
             await pilot.pause()
-            assert "every 30s · 09:00–12:00 ET · 361 sessions a day" in render(
+            assert "30초마다 · 09:00–12:00 ET · 하루 361세션" in render(
                 screen.query_one("#window-line", Static).content)
             end.focus()
             await pilot.press("enter")
             assert screen.query_one("#panes", ContentSwitcher).current == "step-tickers"
             rail = render(screen.query_one("#rail-3", Static).content)
-            assert "every 30s" in rail and "09:00–12:00 ET" in rail
+            assert "30초마다" in rail and "09:00–12:00 ET" in rail
             await pilot.press("escape")  # back from tickers lands on the window, not the cadence list
             assert screen.query_one("#panes", ContentSwitcher).current == "step-window"
             await pilot.press("escape", "escape")
@@ -224,10 +224,10 @@ def test_builder_minute_path_sets_interval_and_window_and_offers_start_running()
             await pilot.pause()
             assert screen.query_one("#panes", ContentSwitcher).current == "step-done"
             menu = screen.query_one("#done-menu", OptionList)
-            assert render(menu.get_option_at_index(0).prompt).strip() == "▶  Run its first session"  # same as daily
+            assert render(menu.get_option_at_index(0).prompt).strip() == "▶  첫 세션 실행"  # same as daily
             summary = render(screen.query_one("#done-summary", Static).content)
-            assert "every 30s · 09:00–12:00 ET" in summary
-            assert "marks the book at the current bar" in summary and "leave a runner on it" in summary
+            assert "30초마다 · 09:00–12:00 ET" in summary
+            assert "현재 봉 기준으로 보유 현황을 평가" in summary and "러너를 켜 둘" in summary
             saved = load_spec(paths.MANDATES_DIR / "fast.yaml")
             assert saved.rebalance == "minute" and saved.interval == 0.5
             assert saved.window.start == "09:00" and saved.window.end == "12:00"
@@ -237,25 +237,25 @@ def test_builder_minute_path_sets_interval_and_window_and_offers_start_running()
 
 def test_builder_minute_helpers_are_pure():
     window = TradingWindow(start="09:30", end="16:00")
-    assert builder.interval_line(1, window) == "every 1m · 09:30–16:00 ET · 391 sessions a day"
-    assert builder.interval_line(90, window) == "every 1h30m · 09:30–16:00 ET · 6 sessions a day"
-    with pytest.raises(ValueError, match="in minutes"):
+    assert builder.interval_line(1, window) == "1분마다 · 09:30–16:00 ET · 하루 391세션"
+    assert builder.interval_line(90, window) == "1시간 30분마다 · 09:30–16:00 ET · 하루 6세션"
+    with pytest.raises(ValueError, match="분 단위로"):
         builder.parse_interval("soon")
-    with pytest.raises(ValueError, match="1s"):
+    with pytest.raises(ValueError, match="1초"):
         builder.parse_interval("0.005")
     assert builder.parse_interval("0.01") == 0.01  # 0.6s rounds to the 1s floor, as the spec counts it
     assert builder.fast_caveat(0.1) and builder.fast_caveat(1 / 6) is None  # 6s warns, 10s does not
 
     today = datetime(2025, 7, 1, tzinfo=NEW_YORK)  # summer: ET is UTC-4
     assert builder.window_lines(window, 1, today=today, local_zone=NEW_YORK) == [
-        "every 1m · 09:30–16:00 ET · 391 sessions a day"]
+        "1분마다 · 09:30–16:00 ET · 하루 391세션"]
     assert builder.window_lines(window, 1, today=today, local_zone=ZoneInfo("America/Los_Angeles"))[1] == \
-        "that is 06:30–13:00 PDT where you are"
+        "현지 시간 06:30–13:00 PDT"
     assert builder.window_lines(window, 1, today=today, local_zone=ZoneInfo("Asia/Tokyo"))[1] == \
-        "that is 22:30–05:00 JST where you are (the next day)"
+        "현지 시간 22:30–05:00 JST (다음 날)"
     assert cadence_identity(FundSpec(**{**make_spec().model_dump(), "rebalance": "minute", "interval": 5})) == \
-        "every 5m · 09:30–16:00 ET"
-    assert cadence_identity(make_spec()) == "weekly"
+        "5분마다 · 09:30–16:00 ET"
+    assert cadence_identity(make_spec()) == "매주"
 
 
 def test_builder_replaces_a_taken_name_only_after_yes_and_only_at_the_end():
@@ -281,7 +281,7 @@ def test_builder_replaces_a_taken_name_only_after_yes_and_only_at_the_end():
             modal = app.screen
             assert isinstance(modal, funds.ConfirmWipeScreen)
             manifest = render(modal.query_one("#confirm-files", Static).content)
-            assert "alpha.yaml" in manifest and "1 backtest" in manifest and "1 session of ledger" in manifest
+            assert "alpha.yaml" in manifest and "백테스트 1개" in manifest and "원장 세션 1개" in manifest
             await pilot.press("enter")  # yes, replace
             assert screen.query_one("#panes", ContentSwitcher).current == "step-strategies"
             # Nothing has gone yet: an abandoned wizard costs nothing.
@@ -340,13 +340,13 @@ def test_builder_paper_mode_run_its_first_session_opens_the_approval_step(monkey
             screen.query_one("#tickers-input", Input).value = "TEST"
             await pilot.press("enter")
             await pilot.pause()
-            await pilot.press("enter")  # "Run its first session"
+            await pilot.press("enter")  # "첫 세션 실행"
             await pilot.pause()
             await pilot.pause()
             modal = app.screen
             assert isinstance(modal, paper.RunConfirmScreen)
             body = render(modal.query_one("#run-body", Static).content)
-            assert "Mark the book at the 2025-01-21 close.  No trades." in body and "first decision" in body
+            assert "보유 현황 평가: 2025-01-21 종가.  거래 없음." in body and "첫 결정" in body
             await pilot.press("escape")
             fund_list = app.screen
             assert isinstance(fund_list, paper.PaperScreen)

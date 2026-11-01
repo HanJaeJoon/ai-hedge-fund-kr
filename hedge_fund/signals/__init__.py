@@ -34,7 +34,7 @@ def get_investment_approach(name: str) -> InvestmentApproach:
     Profiles must be declared on the registered class, not inherited.
     """
     if name not in ALPHA_MODEL_REGISTRY:
-        raise ValueError(f"unknown analyst {name!r}; available: {', '.join(sorted(ALPHA_MODEL_REGISTRY))}")
+        raise ValueError(f"알 수 없는 애널리스트 {name!r}입니다. 사용 가능: {', '.join(sorted(ALPHA_MODEL_REGISTRY))}")
     approach = vars(ALPHA_MODEL_REGISTRY[name]).get("investment_approach")
     if approach not in ("long_only", "long_short"):
         raise ValueError(f"analyst {name!r} must declare investment_approach as long_only or long_short")
@@ -48,7 +48,7 @@ def get_horizon_days(name: str) -> int:
     inherited, or not a positive whole number of days.
     """
     if name not in ALPHA_MODEL_REGISTRY:
-        raise ValueError(f"unknown analyst {name!r}; available: {', '.join(sorted(ALPHA_MODEL_REGISTRY))}")
+        raise ValueError(f"알 수 없는 애널리스트 {name!r}입니다. 사용 가능: {', '.join(sorted(ALPHA_MODEL_REGISTRY))}")
     horizon = vars(ALPHA_MODEL_REGISTRY[name]).get("horizon_days")
     if type(horizon) is not int or horizon <= 0:
         raise ValueError(f"analyst {name!r} must declare horizon_days as a positive number of trading days")

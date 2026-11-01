@@ -42,7 +42,7 @@ def test_all_modes_can_be_backtested_and_paper_traded(mode, size):
             assert menu.highlighted == menu.get_option_index("paper:0")
             assert app.screen.check_action("halt", ()) and app.screen.check_action("sessions", ())
             detail = render(app.screen.query_one("#detail-body", Static).content)
-            assert "● new" in detail and "NEXT RUN" in detail
+            assert "● 신규" in detail and "다음 실행" in detail
             assert load_deployed(directory).spec == spec
     asyncio.run(scenario())
 
@@ -66,7 +66,7 @@ def test_paper_screen_shows_live_prints_when_they_arrive(monkeypatch):
             for _ in range(50):  # the prints arrive off-thread
                 await pilot.pause(0.05)
                 detail = render(app.screen.query_one("#detail-body", Static).content)
-                if "Live" in detail:
+                if "실시간" in detail:
                     break
             assert asked and asked[-1] == ["TEST"] and "$101,200" in detail
     asyncio.run(scenario())
@@ -93,15 +93,15 @@ def test_paper_screen_runs_through_the_approval_step(monkeypatch):
             await app.push_screen(paper.PaperScreen())
             screen = app.screen
             detail = render(screen.query_one("#detail-body", Static).content)
-            assert "NEXT RUN" in detail and "execute the 2025-01-20 decision" in detail
-            assert "TEST +25%" in detail and "SESSIONS" in detail and "2025-01-17" in detail
+            assert "다음 실행" in detail and "2025-01-20 결정 실행" in detail
+            assert "TEST +25%" in detail and "세션" in detail and "2025-01-17" in detail
             await pilot.press("enter")
             await pilot.pause()
             modal = app.screen
             assert isinstance(modal, paper.RunConfirmScreen)
             body = render(modal.query_one("#run-body", Static).content)
-            assert "Execute the 2025-01-20 decision at the 2025-01-21 close" in body
-            assert "TEST +25%" in body and "first session of the week" in body
+            assert "2025-01-20 결정 실행: 2025-01-21 종가" in body
+            assert "TEST +25%" in body and "주의 첫 세션" in body
             assert modal.check_action("confirm", ())
             await pilot.press("escape")  # say no: nothing runs
             assert app.screen is screen and started == []
@@ -121,8 +121,8 @@ def test_paper_screen_runs_through_the_approval_step(monkeypatch):
             modal = app.screen
             assert isinstance(modal, paper.RunConfirmScreen) and modal.check_action("confirm", ())
             body = render(modal.query_one("#run-body", Static).content)
-            assert "Up to date through 2025-01-17" in body and "Run 2025-01-17 again?" in body
-            assert "run again" in render(modal.query_one("#run-keys", Static).content)
+            assert "2025-01-17까지 최신 상태입니다" in body and "2025-01-17 세션을 다시 실행할까요?" in body
+            assert "다시 실행" in render(modal.query_one("#run-keys", Static).content)
             await pilot.press("escape")
             assert app.screen is screen and started == [directory]
             await pilot.press("enter")
@@ -152,27 +152,27 @@ def test_session_report_separates_the_executed_cycle_from_the_new_decision(size,
             footer = render(screen.query_one("#report-foot", Static).content)
             menu = screen.query_one("#report-nav", OptionList)
             ids = [menu.get_option_at_index(i).id for i in range(menu.option_count)]
-            assert "alpha" in head and "session 2025-01-20" in head
+            assert "alpha" in head and "세션 2025-01-20" in head
             assert "NAV $100,000.00" in footer
             if what in ("executed", "both"):
-                assert "executed the 2025-01-15 decision (refreshed 2025-01-19)" in head
+                assert "2025-01-15 결정 실행(갱신 2025-01-19)" in head
                 assert "x:sec:orders" in ids and "x:sec:portfolio" in ids
                 menu.highlighted = menu.get_option_index("x:sec:portfolio")
                 await pilot.pause()
-                assert "Target net" in render(screen.query_one("#detail-pane", Static).content)
+                assert "목표 순노출" in render(screen.query_one("#detail-pane", Static).content)
             if what in ("decided", "both"):
-                assert "executes next session" in head
+                assert "다음 세션에 실행" in head
                 assert "d:sec:portfolio" in ids and "d:sec:orders" not in ids
                 menu.highlighted = menu.get_option_index("d:sec:portfolio")
                 await pilot.pause()
                 detail = render(screen.query_one("#detail-pane", Static).content)
-                assert "PROPOSED ALLOCATIONS" in detail and "TEST: +25.00%" in detail
+                assert "제안 배분" in detail and "TEST: +25.00%" in detail
             if what == "neither":
-                assert "valuation only" in head
+                assert "평가만 수행" in head
                 assert ids == [None, "book"]
                 menu.highlighted = menu.get_option_index("book")
                 await pilot.pause()
-                assert "flat — no positions" in render(screen.query_one("#detail-pane", Static).content)
+                assert "보유 포지션 없음" in render(screen.query_one("#detail-pane", Static).content)
     asyncio.run(scenario())
 
 
@@ -190,7 +190,7 @@ def test_paper_screen_works_the_kill_switch_and_sessions_reads_the_ledger(tmp_pa
             assert [menu.get_option_at_index(i).id for i in range(menu.option_count)] == ["paper:0", "build"]
             assert "alpha" in render(menu.get_option("paper:0").prompt)
             detail = render(screen.query_one("#detail-body", Static).content)
-            assert "● new" in detail and "mark the book at the latest completed close" in detail
+            assert "● 신규" in detail and "가장 최근 완료된 종가로 보유 현황 평가" in detail
             assert screen.check_action("halt", ()) and not screen.check_action("resume", ())
 
             await pilot.press("h")  # no prompt: halts at once
@@ -199,7 +199,7 @@ def test_paper_screen_works_the_kill_switch_and_sessions_reads_the_ledger(tmp_pa
             assert ledger.halted() == paper_view.APP_HALT
             assert menu.highlighted == menu.get_option_index("paper:0")  # re-highlighted after the reload
             detail = render(screen.query_one("#detail-body", Static).content)
-            assert "■ halted" in detail and "r to resume" in detail and paper_view.APP_HALT not in detail
+            assert "■ 거래 중지됨" in detail and "r로 재개" in detail and paper_view.APP_HALT not in detail
             assert not screen.check_action("halt", ()) and screen.check_action("resume", ())
             await pilot.press("enter")  # halted funds do not run
             await pilot.pause()
@@ -221,24 +221,24 @@ def test_paper_screen_works_the_kill_switch_and_sessions_reads_the_ledger(tmp_pa
             await pilot.press("escape")
             await pilot.pause()
             detail = render(screen.query_one("#detail-body", Static).content)
-            assert "○ idle" in detail and "mark the book" in detail and "2025-01-17 · 2 sessions" in detail
-            assert "SESSIONS" in detail and "2025-01-20" in detail and "1 fill" in detail
+            assert "○ 대기" in detail and "보유 현황 평가" in detail and "2025-01-17 · 세션 2개" in detail
+            assert "세션" in detail and "2025-01-20" in detail and "체결 1건" in detail
             assert "+1.0%" in render(menu.get_option("paper:0").prompt)
 
             await pilot.press("s")
             sessions_screen = app.screen
             assert isinstance(sessions_screen, paper.SessionsScreen)
-            assert "last session 2025-01-20" in render(sessions_screen.query_one("#pf-status", Static).content)
+            assert "마지막 세션 2025-01-20" in render(sessions_screen.query_one("#pf-status", Static).content)
             assert "+1.00%" in render(sessions_screen.query_one("#stat-return", Static).content)
             sessions = sessions_screen.query_one("#pf-sessions", OptionList)
             rows = [render(sessions.get_option_at_index(i).prompt) for i in range(sessions.option_count)]
-            assert rows[0].startswith(" 2025-01-20") and "1 fill" in rows[0]
-            assert rows[1].startswith(" 2025-01-17") and "decided" in rows[1]
+            assert rows[0].startswith(" 2025-01-20") and "체결 1건" in rows[0]
+            assert rows[1].startswith(" 2025-01-17") and "결정" in rows[1]
             overview = render(sessions_screen.query_one("#detail-pane", Static).content)
-            assert "EXECUTED" in overview and "decision from 2025-01-15" in overview
+            assert "실행됨" in overview and "2025-01-15 결정" in overview
             await pilot.press("enter")
             assert isinstance(app.screen, paper.SessionReportScreen)
-            assert "executed the 2025-01-15 decision" in render(app.screen.query_one("#report-head", Static).content)
+            assert "2025-01-15 결정 실행" in render(app.screen.query_one("#report-head", Static).content)
             await pilot.press("escape")
             await pilot.press("escape")
             assert app.screen is screen
@@ -249,7 +249,7 @@ def test_paper_screen_works_the_kill_switch_and_sessions_reads_the_ledger(tmp_pa
             modal = app.screen
             assert isinstance(modal, funds.ConfirmWipeScreen)
             manifest = render(modal.query_one("#confirm-files", Static).content)
-            assert "2 sessions of ledger" in manifest and "alpha.yaml" in manifest and "name is free again" in manifest
+            assert "원장 세션 2개" in manifest and "alpha.yaml" in manifest and "이 이름을 다시 쓸 수 있습니다" in manifest
             await pilot.press("escape")  # no
             assert app.screen is screen and directory.exists()
             await pilot.press("d")
@@ -284,10 +284,10 @@ def test_paper_screen_enter_on_a_minute_fund_opens_the_same_approval_step(monkey
             await pilot.pause()
             modal = app.screen
             assert isinstance(modal, paper.RunConfirmScreen) and modal.check_action("confirm", ())
-            assert "through 2025-01-21 13:05:00 ET?" in render(modal.query_one("#run-q", Static).content)
+            assert "2025-01-21 13:05:00 ET까지 실행?" in render(modal.query_one("#run-q", Static).content)
             body = render(modal.query_one("#run-body", Static).content)
-            assert "Mark the book at the 2025-01-21 13:05:00 ET print, taken now" in body
-            assert "first decision" in body
+            assert "보유 현황 평가: 2025-01-21 13:05:00 ET 체결가, 지금 조회" in body
+            assert "첫 결정" in body
             await pilot.press("enter")
             await pilot.pause()
             assert isinstance(app.screen, paper.RunSessionScreen) and started == [directory]
@@ -324,19 +324,19 @@ def test_paper_screen_space_starts_and_stops_a_runner_at_any_cadence(monkeypatch
             await app.push_screen(paper.PaperScreen())
             screen = app.screen
             menu = screen.query_one("#paper-menu", OptionList)
-            assert "● new" in render(menu.get_option("paper:0").prompt)
+            assert "● 신규" in render(menu.get_option("paper:0").prompt)
             await pilot.press("space")
             await pilot.pause()
             assert spawned == [directory] and app.screen is screen  # no approval modal for a runner
-            assert "● running" in render(menu.get_option("paper:0").prompt)
+            assert "● 실행 중" in render(menu.get_option("paper:0").prompt)
             detail = render(screen.query_one("#detail-body", Static).content)
-            assert "● running · space to stop" in detail
+            assert "● 실행 중 · space로 중지" in detail
             await pilot.press("enter")  # the runner owns the ledger while it is up: enter does not run
             await pilot.pause()
             assert app.screen is screen
             await pilot.press("space")
             await pilot.pause()
-            assert stopped == [directory] and "● new" in render(menu.get_option("paper:0").prompt)
+            assert stopped == [directory] and "● 신규" in render(menu.get_option("paper:0").prompt)
             # A halted fund's runner is not started.
             await pilot.press("h")
             await pilot.pause()
@@ -364,15 +364,15 @@ def test_sessions_screen_groups_a_minute_funds_bars_by_day():
             await app.push_screen(paper.SessionsScreen(directory))
             screen = app.screen
             await pilot.pause()
-            assert "every 5m · 13:00–13:10 ET" in render(screen.query_one("#pf-head", Static).content)
+            assert "5분마다 · 13:00–13:10 ET" in render(screen.query_one("#pf-head", Static).content)
             sessions = screen.query_one("#pf-sessions", OptionList)
             rows = [(sessions.get_option_at_index(i).id, render(sessions.get_option_at_index(i).prompt).strip())
                     for i in range(sessions.option_count)]
-            assert rows[0][0] is None and rows[0][1].startswith("2025-01-22  +0.99%  1 bar")
+            assert rows[0][0] is None and rows[0][1].startswith("2025-01-22  +0.99%  봉 1개")
             assert rows[1] == ("s:0", "13:00:00  +0.99%")
-            assert rows[2][0] is None and rows[2][1].startswith("2025-01-21  +1.00%  2 bars")
-            assert rows[3][0] == "s:1" and rows[3][1].startswith("13:05:00  +1.00%  1 fill")
-            assert rows[4][0] == "s:2" and rows[4][1].startswith("13:00:00  +0.00%  decided")
+            assert rows[2][0] is None and rows[2][1].startswith("2025-01-21  +1.00%  봉 2개")
+            assert rows[3][0] == "s:1" and rows[3][1].startswith("13:05:00  +1.00%  체결 1건")
+            assert rows[4][0] == "s:2" and rows[4][1].startswith("13:00:00  +0.00%  결정")
             assert sessions.highlighted == 1  # the newest bar, not its heading
-            assert "next bar's close" in render(report.session_overview(chain[0]))
+            assert "다음 봉 종가" in render(report.session_overview(chain[0]))
     asyncio.run(scenario())

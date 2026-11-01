@@ -27,9 +27,9 @@ class HomeScreen(Screen):
     """
 
     BINDINGS = [
-        Binding("m", "pick_model", "switch model"),
-        Binding("k", "set_key", "api key"),
-        Binding("escape", "quit_app", "quit"),
+        Binding("m", "pick_model", "모델 변경"),
+        Binding("k", "set_key", "API 키"),
+        Binding("escape", "quit_app", "종료"),
     ]
 
     def compose(self) -> ComposeResult:
@@ -40,14 +40,14 @@ class HomeScreen(Screen):
             yield OptionList(
                 Option(
                     Text.assemble(
-                        ("Paper trading\n", "bold"),
-                        ("run a fund on real market days", MUTED)),
+                        ("모의투자\n", "bold"),
+                        ("실제 거래일에 펀드 운용", MUTED)),
                     id="paper"),
                 None,
                 Option(
                     Text.assemble(
-                        ("Backtesting\n", "bold"),
-                        ("test a fund over history", MUTED)),
+                        ("백테스트\n", "bold"),
+                        ("과거 데이터로 펀드 검증", MUTED)),
                     id="backtest"),
                 id="home-menu",
             )
@@ -85,12 +85,12 @@ class HomeScreen(Screen):
         it. Replacing a key that already works is allowed on purpose."""
         provider = provider_for(self._model_id)
         if provider is None:
-            self.notify("Model is not in the registry — set its key by hand.",
+            self.notify("레지스트리에 없는 모델입니다. API 키를 직접 설정하세요.",
                         severity="warning")
             return
         env_var = PROVIDER_ENV_VARS.get(provider)
         if env_var is None:
-            self.notify(f"No key is needed for {provider}.")
+            self.notify(f"{provider}에는 API 키가 필요 없습니다.")
             return
         self.app.push_screen(KeyPromptScreen(provider, env_var),
                              lambda _: self._show_model())
@@ -103,10 +103,10 @@ class HomeScreen(Screen):
                       if mid == self._model_id), self._model_id)
         self.query_one("#model-line", Static).update(
             Text.assemble(
-                ("agents reason with  ", MUTED),
+                ("에이전트 분석 모델  ", MUTED),
                 (label, f"bold {GREEN}"),
                 (f"  {self._model_id}", MUTED),
-                ("   ·  m to switch", MUTED),
+                ("   ·  m 키로 변경", MUTED),
             )
         )
 
@@ -129,7 +129,7 @@ class KeyPromptScreen(ModalScreen[bool]):
     the value is never echoed back — the confirmation shows a masked form.
     """
 
-    BINDINGS = [Binding("escape", "cancel", "cancel")]
+    BINDINGS = [Binding("escape", "cancel", "취소")]
 
     def __init__(self, provider: str, env_var: str) -> None:
         super().__init__()
@@ -139,19 +139,19 @@ class KeyPromptScreen(ModalScreen[bool]):
     def compose(self) -> ComposeResult:
         with Vertical(id="keyprompt"):
             yield Static(Text.assemble(
-                (f"{self._provider} API key needed", f"bold {BRIGHT}")),
+                (f"{self._provider} API 키 필요", f"bold {BRIGHT}")),
                 id="key-q")
             yield Static(Text.assemble(
-                ("The fund cannot run without it. Paste it below and it "
-                 "is saved to\n", MUTED),
+                ("이 키가 없으면 펀드를 실행할 수 없습니다. 아래에 붙여 넣으면 "
+                 "다음 파일에 저장됩니다.\n", MUTED),
                 (str(paths.ENV_PATH), TEXT),
-                ("\nwhich is owner-read-only and loaded automatically on "
-                 "every start.", MUTED)),
+                ("\n이 파일은 소유자만 읽을 수 있고 시작할 때마다 "
+                 "자동으로 불러옵니다.", MUTED)),
                 id="key-blurb")
             yield Input(password=True, placeholder=self._env_var, id="key-input")
             yield Static(Text.assemble(
-                ("enter", f"bold {GREEN}"), ("  save and continue   ", MUTED),
-                ("esc", f"bold {BRIGHT}"), ("  cancel", MUTED)),
+                ("enter", f"bold {GREEN}"), ("  저장하고 계속   ", MUTED),
+                ("esc", f"bold {BRIGHT}"), ("  취소", MUTED)),
                 classes="hint")
         yield Footer()
 
@@ -162,10 +162,10 @@ class KeyPromptScreen(ModalScreen[bool]):
     def _save(self, event: Input.Submitted) -> None:
         key = event.value.strip()
         if not key:
-            self.notify("No key entered", severity="warning")
+            self.notify("키를 입력하지 않았습니다", severity="warning")
             return
         path = save_credential(self._env_var, key)
-        self.notify(f"Saved {self._env_var} ({masked(key)}) to {path}")
+        self.notify(f"{self._env_var} ({masked(key)}) 저장 완료: {path}")
         self.dismiss(True)
 
     def action_cancel(self) -> None:
@@ -180,7 +180,7 @@ class ModelPickerScreen(ModalScreen[str | None]):
     dying halfway through on a model id ChatAnthropic will reject.
     """
 
-    BINDINGS = [Binding("escape", "cancel", "cancel")]
+    BINDINGS = [Binding("escape", "cancel", "취소")]
 
     def __init__(self, current: str) -> None:
         super().__init__()
@@ -188,10 +188,10 @@ class ModelPickerScreen(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="picker"):
-            yield Static(Text("Agents reason with", style=f"bold {BRIGHT}"),
+            yield Static(Text("에이전트 분석 모델", style=f"bold {BRIGHT}"),
                          id="picker-q")
             yield OptionList(*self._options(), id="picker-list")
-            yield Static(Text("enter to pick · esc to cancel", style=MUTED),
+            yield Static(Text("enter 선택 · esc 취소", style=MUTED),
                          classes="hint")
         yield Footer()
 
@@ -201,7 +201,7 @@ class ModelPickerScreen(ModalScreen[str | None]):
             reachable = is_supported(provider)
             head = Text(provider.upper(), style=f"bold {BRIGHT}")
             if not reachable:
-                head.append("   no client in v2 yet", style=MUTED)
+                head.append("   v2 클라이언트 미지원", style=MUTED)
             options.append(Option(head, disabled=True))
             for name, model_id, _ in models:
                 row = Text()

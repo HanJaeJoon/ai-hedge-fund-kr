@@ -21,19 +21,19 @@ _NONE = Text("–", style=MUTED)
 def analyst_table(card: Scorecard) -> Table:
     """Hit rate and slugging on benchmark-relative returns; IC as a per-date
     series. Each view is judged at the horizon its analyst declared."""
-    table = _table("ANALYSTS  ·  each view judged at its own horizon")
-    table.add_column("analyst", style=f"bold {TEXT}")
-    table.add_column("horizon", justify="right")
-    table.add_column("views", justify="right")
-    table.add_column("pending", justify="right")
-    table.add_column("abstained", justify="right")
-    table.add_column("hit rate", justify="right")
-    table.add_column("slugging", justify="right")
+    table = _table("애널리스트  ·  의견마다 스스로 정한 보유 기간으로 채점")
+    table.add_column("애널리스트", style=f"bold {TEXT}")
+    table.add_column("보유 기간", justify="right")
+    table.add_column("의견", justify="right")
+    table.add_column("대기", justify="right")
+    table.add_column("기권", justify="right")
+    table.add_column("적중률", justify="right")
+    table.add_column("손익비", justify="right")
     table.add_column("IC", justify="right")
     table.add_column("IC t", justify="right")
-    table.add_column("dates", justify="right")
+    table.add_column("일수", justify="right")
     if not card.analysts:
-        table.caption = "nothing to grade yet: a view is scored once its horizon arrives"
+        table.caption = "아직 채점할 의견이 없습니다: 의견은 보유 기간이 지나야 채점됩니다"
         table.caption_style = MUTED
         table.caption_justify = "left"
         return table
@@ -55,16 +55,16 @@ def analyst_table(card: Scorecard) -> Table:
 
 def strategy_table(card: Scorecard) -> Table:
     """Each sleeve's P&L between executions, and the part no sleeve explains."""
-    table = _table("STRATEGIES  ·  P&L between executions")
-    table.add_column("strategy", style=f"bold {TEXT}")
-    table.add_column("periods", justify="right")
-    table.add_column("P&L", justify="right")
-    table.add_column("return", justify="right")
-    table.add_column("win rate", justify="right")
-    table.add_column("max DD", justify="right")
-    table.add_column("share", justify="right")
+    table = _table("전략  ·  실행 사이의 손익")
+    table.add_column("전략", style=f"bold {TEXT}")
+    table.add_column("기간", justify="right")
+    table.add_column("손익", justify="right")
+    table.add_column("수익률", justify="right")
+    table.add_column("승률", justify="right")
+    table.add_column("최대 낙폭", justify="right")
+    table.add_column("기여도", justify="right")
     if not card.strategies:
-        table.caption = "nothing to attribute yet: a sleeve is scored between two executions"
+        table.caption = "아직 귀속할 손익이 없습니다: 전략은 두 번의 실행 사이에서 채점됩니다"
         table.caption_style = MUTED
         table.caption_justify = "left"
         return table
@@ -78,8 +78,8 @@ def strategy_table(card: Scorecard) -> Table:
             Text(f"{s.max_drawdown_pct:.1%}", style=RED if s.max_drawdown_pct > 0 else MUTED),
             _NONE if s.share_of_pnl is None else Text(f"{s.share_of_pnl:+.0%}", style=TEXT),
         )
-    table.caption = (f"fund P&L {card.fund_pnl:+,.0f}  ·  unattributed {card.unattributed:+,.0f}  ·  "
-                     f"of which trading costs {-card.trading_cost:+,.0f}")
+    table.caption = (f"펀드 손익 {card.fund_pnl:+,.0f}  ·  미귀속 {card.unattributed:+,.0f}  ·  "
+                     f"그중 거래 비용 {-card.trading_cost:+,.0f}")
     table.caption_style = MUTED
     table.caption_justify = "left"
     return table
@@ -97,7 +97,7 @@ def _table(title: str) -> Table:
 def _rate(value: float | None, n: int) -> Text:
     if value is None:
         return _NONE
-    return Text.assemble((f"{value:.0%}", _signed(value - 0.5)), (f" of {n}", MUTED))
+    return Text.assemble((f"{value:.0%}", _signed(value - 0.5)), (f" / {n}", MUTED))
 
 
 def _signed(value: float) -> str:

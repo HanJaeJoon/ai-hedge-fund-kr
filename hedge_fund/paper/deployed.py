@@ -45,8 +45,8 @@ def validate_fund_name(name: str) -> str:
     """A fund name is a directory name: no separators, nothing hidden."""
     if not _NAME.fullmatch(name) or name in (".", ".."):
         raise ValueError(
-            f"invalid fund name {name!r}: use letters, digits, '.', '_' or '-', "
-            "starting with a letter or digit"
+            f"잘못된 펀드 이름 {name!r}: 영문자, 숫자, '.', '_', '-'만 쓸 수 있고 "
+            "영문자나 숫자로 시작해야 합니다"
         )
     return name
 
@@ -60,7 +60,7 @@ def deploy(
     universe = normalize_universe(universe)
     directory = Path(root) / name
     if directory.exists():
-        raise FileExistsError(f"paper fund {name!r} already exists at {directory}")
+        raise FileExistsError(f"모의투자 펀드 {name!r}이(가) 이미 있습니다: {directory}")
     deployed = DeployedFund(
         name=name, spec=spec, universe=universe, created=_date.today().isoformat(),
     )
@@ -79,9 +79,9 @@ def load_deployed(directory: str | Path) -> DeployedFund:
     try:
         data = yaml.safe_load(path.read_text())
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
-        raise ValueError(f"{path}: cannot read the deployed fund: {exc}") from exc
+        raise ValueError(f"{path}: 배포된 펀드를 읽을 수 없습니다: {exc}") from exc
     if not isinstance(data, dict):
-        raise ValueError(f"{path}: the deployed fund must be a YAML mapping")
+        raise ValueError(f"{path}: 배포된 펀드 파일은 YAML 매핑이어야 합니다")
     try:
         return DeployedFund.model_validate(data)
     except ValidationError as exc:

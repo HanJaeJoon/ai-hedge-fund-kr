@@ -9,6 +9,7 @@ these functions test with a Console and nothing else.
 from __future__ import annotations
 
 from rich import box
+from rich.cells import cell_len
 from rich.console import Group
 from rich.table import Table
 from rich.text import Text
@@ -33,10 +34,15 @@ _VERDICT_STYLE = {
 }
 
 
+_VERDICT_LABEL = {"bullish": "강세", "bearish": "약세", "neutral": "중립", "abstain": "기권"}
+
+_SIDE_LABEL = {"buy": "매수", "sell": "매도"}
+
+
 _FLAT_REASONS = {
-    "no_eligible_positions": "no eligible positions",
-    "missing_long_side": "no eligible longs to balance the shorts",
-    "missing_short_side": "no eligible shorts to balance the longs",
+    "no_eligible_positions": "편입 가능한 포지션 없음",
+    "missing_long_side": "숏을 상쇄할 편입 가능한 롱 없음",
+    "missing_short_side": "롱을 상쇄할 편입 가능한 숏 없음",
 }
 
 
@@ -47,6 +53,11 @@ _DECIDED = "d:"
 
 
 _TAPE_ROWS = 12
+
+
+def _pad(text: str, width: int) -> str:
+    """Left-justify by terminal cells, not characters: a Hangul glyph is two."""
+    return text + " " * max(0, width - cell_len(text))
 
 
 def verdict(signal: Signal) -> tuple[str, str, str]:
@@ -63,7 +74,7 @@ def verdict(signal: Signal) -> tuple[str, str, str]:
     else:
         word = "neutral"
     glyph, colour = _VERDICT_STYLE[word]
-    return (glyph, word.upper(), colour)
+    return (glyph, _VERDICT_LABEL[word], colour)
 
 
 def weights_line(decision: DecisionRecord, limit: int = 6) -> Text:
@@ -79,7 +90,7 @@ def weights_line(decision: DecisionRecord, limit: int = 6) -> Text:
         line.append(ticker, style=TEXT)
         line.append(f" {weight:+.0%}", style=GREEN if weight > 0 else RED)
     if len(targets) > limit:
-        line.append(f"  ·  +{len(targets) - limit} more", style=MUTED)
+        line.append(f"  ·  외 {len(targets) - limit}개", style=MUTED)
     return line
 
 
@@ -147,10 +158,10 @@ def desk_table(desks: list[Desk]) -> Table:
     for desk in desks:
         if desk.status == "done":
             table.add_row(Text("✓", f"bold {GREEN}"), Text(desk.who, "bold"),
-                          Text(""), Text("Done", GREEN), Text(""))
+                          Text(""), Text("완료", GREEN), Text(""))
         elif desk.status == "queued":
             table.add_row(Text("⋯", MUTED), Text(desk.who, MUTED), Text(""),
-                          Text(""), Text("queued", MUTED))
+                          Text(""), Text("대기", MUTED))
         else:
             table.add_row(
                 Text("⋯", "yellow"),
@@ -176,11 +187,11 @@ def roster_table(order: list[str], state: dict[str, tuple[str, str | None]]) -> 
         row = Text()
         if status == "done":
             row.append("✓ ", f"bold {GREEN}")
-            row.append(f"{name:<24}", "bold")
-            row.append("Done", GREEN)
+            row.append(_pad(name, 24), "bold")
+            row.append("완료", GREEN)
         elif status == "working":
             row.append("⋯ ", "yellow")
-            row.append(f"{name:<24}", "bold")
+            row.append(_pad(name, 24), "bold")
             symbol, _, as_of = (label or "").partition(" · ")
             row.append("[", CYAN)
             row.append(symbol, CYAN)
@@ -188,11 +199,11 @@ def roster_table(order: list[str], state: dict[str, tuple[str, str | None]]) -> 
                 row.append(" · ", CYAN)
                 row.append(as_of, RED)
             row.append("] ", CYAN)
-            row.append("Analyzing", "yellow")
+            row.append("분석 중", "yellow")
         else:
             row.append("⋯ ", MUTED)
-            row.append(f"{name:<24}", MUTED)
-            row.append("queued", MUTED)
+            row.append(_pad(name, 24), MUTED)
+            row.append("대기", MUTED)
         table.add_row(row)
     return table
 
@@ -228,7 +239,7 @@ def report_nav(record: CycleRecord | DecisionRecord, prefix: str = "") -> list[O
             confidence = s.metadata.get("confidence")
             row = Text()
             row.append(f" {s.ticker:<6}", style=f"bold {CYAN}")
-            row.append(f"{SHORT_NAMES.get(s.model_name, s.model_name):<15}",
+            row.append(_pad(SHORT_NAMES.get(s.model_name, s.model_name), 15),
                        style=TEXT)
             row.append(f"{glyph} ", style=f"bold {tone}")
             row.append(f"{confidence:.0f}%" if confidence is not None else "  —",
@@ -236,14 +247,14 @@ def report_nav(record: CycleRecord | DecisionRecord, prefix: str = "") -> list[O
             options.append(Option(row, id=f"{prefix}sig:{si}:{sj}"))
 
     options.append(Option(Text(""), disabled=True))
-    options.append(Option(Text("THE BOOK", style=f"bold {BRIGHT}"), disabled=True))
+    options.append(Option(Text("보유 현황", style=f"bold {BRIGHT}"), disabled=True))
     if record.clamps:
         options.append(Option(
-            Text(f" Risk limits ({len(record.clamps)})", style=TEXT), id=f"{prefix}sec:risk"))
+            Text(f" 리스크 한도({len(record.clamps)})", style=TEXT), id=f"{prefix}sec:risk"))
     if isinstance(record, CycleRecord):
         options.append(Option(
-            Text(f" Orders ({len(record.orders)})", style=TEXT), id=f"{prefix}sec:orders"))
-    options.append(Option(Text(" Portfolio" if isinstance(record, CycleRecord) else " Proposed allocations", style=TEXT), id=f"{prefix}sec:portfolio"))
+            Text(f" 주문({len(record.orders)})", style=TEXT), id=f"{prefix}sec:orders"))
+    options.append(Option(Text(" 포트폴리오" if isinstance(record, CycleRecord) else " 제안 배분", style=TEXT), id=f"{prefix}sec:portfolio"))
     return options
 
 
@@ -254,19 +265,19 @@ def session_nav(record: SessionRecord) -> list[Option]:
     options: list[Option] = []
     if record.executed is not None:
         options.append(Option(Text.assemble(
-            ("EXECUTED", f"bold {GREEN}"),
-            (f"  decided {record.executed.as_of}", MUTED)), disabled=True))
+            ("실행됨", f"bold {GREEN}"),
+            (f"  {record.executed.as_of} 결정", MUTED)), disabled=True))
         options.extend(report_nav(record.executed, _EXECUTED))
     if record.decision is not None:
         if options:
             options.append(Option(Text(""), disabled=True))
         options.append(Option(Text.assemble(
-            ("DECIDED", f"bold {CYAN}"),
-            ("  executes next session", MUTED)), disabled=True))
+            ("결정", f"bold {CYAN}"),
+            ("  다음 세션에 실행", MUTED)), disabled=True))
         options.extend(report_nav(record.decision, _DECIDED))
     if not options:
-        options.append(Option(Text("THE BOOK", style=f"bold {BRIGHT}"), disabled=True))
-        options.append(Option(Text(" Portfolio", style=TEXT), id="book"))
+        options.append(Option(Text("보유 현황", style=f"bold {BRIGHT}"), disabled=True))
+        options.append(Option(Text(" 포트폴리오", style=TEXT), id="book"))
     return options
 
 
@@ -293,19 +304,19 @@ def signal_detail(record: CycleRecord | DecisionRecord, si: int, sj: int) -> Gro
     header.append(DISPLAY_NAMES.get(signal.model_name, signal.model_name),
                   style=f"bold {BRIGHT}")
     if signal.horizon_days is not None:
-        header.append(f"  ·  {horizon_label(signal.horizon_days)} view", style=MUTED)
+        header.append(f"  ·  보유 기간 {horizon_label(signal.horizon_days)}", style=MUTED)
     facts = Text()
     facts.append(word, style=f"bold {tone}")
     if confidence is not None:
-        label = "investment conviction" if jev else "confidence"
-        facts.append(f"  ·  {confidence:.0f}% {label}", style=MUTED)
-    facts.append(f"  ·  conviction {signal.value:+.2f}", style=MUTED)
+        label = "투자 확신도" if jev else "확신도"
+        facts.append(f"  ·  {label} {confidence:.0f}%", style=MUTED)
+    facts.append(f"  ·  시그널 값 {signal.value:+.2f}", style=MUTED)
     facts.append(f"  ·  {sr.name}", style=MUTED)
     return Group(
         header,
         facts,
         Text(""),
-        Text(signal.reasoning or "no thesis recorded",
+        Text(signal.reasoning or "기록된 논거 없음",
              style=TEXT if signal.reasoning else MUTED),
         *([Text(""), _jev_details(jev)] if jev else []),
     )
@@ -315,29 +326,29 @@ def portfolio_detail(record: CycleRecord) -> Group:
     target_net = record.equity_before * sum(record.final_weights.values())
     actual_net = sum(shares * record.marks[ticker] for ticker, shares in record.positions.items())
     details = [
-        Text("PORTFOLIO", style=f"bold {BRIGHT}"),
-        Text(f"Target net ${target_net:+,.2f} · Actual net ${actual_net:+,.2f} · Difference ${actual_net - target_net:+,.2f}", style=MUTED),
+        Text("포트폴리오", style=f"bold {BRIGHT}"),
+        Text(f"목표 순노출 ${target_net:+,.2f} · 실제 순노출 ${actual_net:+,.2f} · 차이 ${actual_net - target_net:+,.2f}", style=MUTED),
     ]
     if any(s.blend.mode == "dollar_neutral" for s in record.spec.strategies):
-        details.append(Text("Dollar-neutral rules apply to strategy targets. Whole-share holdings can differ; other strategies can add net exposure.", style=MUTED))
+        details.append(Text("달러 중립 규칙은 전략의 목표 비중에 적용됩니다. 주식 수가 정수라 실제 보유는 다를 수 있고, 다른 전략이 순노출을 더할 수 있습니다.", style=MUTED))
     if record.risk_scale_factor is not None and record.risk_scale_factor < 1:
-        details.append(Text(f"Risk limits scaled all strategy targets to {record.risk_scale_factor:.1%} of their requested exposure.", style=MUTED))
+        details.append(Text(f"리스크 한도 때문에 모든 전략의 목표 비중을 요청 노출의 {record.risk_scale_factor:.1%}로 줄였습니다.", style=MUTED))
     for strategy in record.strategies:
         if strategy.flat_reason:
-            details.append(Text(f"{strategy.name}: zero exposure — {_FLAT_REASONS[strategy.flat_reason]}. Allocated capital remains unused.", style=MUTED))
+            details.append(Text(f"{strategy.name}: 노출 없음({_FLAT_REASONS[strategy.flat_reason]}). 배정된 자본은 쓰지 않습니다.", style=MUTED))
     if not record.positions:
-        return Group(*details, Text("flat — no positions", style=MUTED))
+        return Group(*details, Text("보유 포지션 없음", style=MUTED))
     table = Table(box=box.SQUARE, header_style="bold", border_style="#1f2b25")
-    table.add_column("Ticker", style=f"bold {CYAN}")
-    table.add_column("Side", justify="center")
-    table.add_column("Shares", justify="right")
-    table.add_column("Value", justify="right")
-    table.add_column("Weight", justify="right")
+    table.add_column("종목", style=f"bold {CYAN}")
+    table.add_column("방향", justify="center")
+    table.add_column("주식 수", justify="right")
+    table.add_column("평가액", justify="right")
+    table.add_column("비중", justify="right")
     for ticker in sorted(record.positions):
         shares = record.positions[ticker]
         value = shares * record.marks[ticker]
-        side = (Text("LONG", style=f"bold {GREEN}") if shares > 0
-                else Text("SHORT", style=f"bold {RED}"))
+        side = (Text("롱", style=f"bold {GREEN}") if shares > 0
+                else Text("숏", style=f"bold {RED}"))
         tone = GREEN if value >= 0 else RED
         table.add_row(
             ticker, side, f"{shares:+d}",
@@ -357,23 +368,23 @@ def book_summary(record: CycleRecord | SessionRecord) -> Text:
     net = (long_val + short_val) / record.nav
     summary = Text()
     summary.append(f"NAV ${record.nav:,.2f}", style=f"bold {BRIGHT}")
-    summary.append(f"   Cash ${record.cash:,.0f}", style=CYAN)
-    summary.append(f"   Gross {gross:.0%}   Net {net:+.0%}", style=MUTED)
+    summary.append(f"   현금 ${record.cash:,.0f}", style=CYAN)
+    summary.append(f"   총노출 {gross:.0%}   순노출 {net:+.0%}", style=MUTED)
     return summary
 
 
 def session_headline(name: str, record: SessionRecord) -> Text:
     """The report header for one session: what happened at this close."""
-    facts = [f"session {record.session}"]
+    facts = [f"세션 {record.session}"]
     if record.executed is not None:
         x = record.executed
         refreshed = x.refreshed_assessment.as_of if x.refreshed_assessment else x.as_of
-        facts.append(f"executed the {x.as_of} decision (refreshed {refreshed})")
+        facts.append(f"{x.as_of} 결정 실행(갱신 {refreshed})")
     if record.decision is not None:
         n_signals = sum(len(sr.signals) for sr in record.decision.strategies)
-        facts.append(f"decided · {n_signals} signals · executes next session")
+        facts.append(f"결정 · 시그널 {n_signals}개 · 다음 세션에 실행")
     if record.executed is None and record.decision is None:
-        facts.append("valuation only")
+        facts.append("평가만 수행")
     return Text.assemble((name, f"bold {BRIGHT}"), ("  ·  " + "  ·  ".join(facts), MUTED))
 
 
@@ -387,9 +398,9 @@ def session_row(record: SessionRecord, prev_nav: float, *, time_only: bool = Fal
     row.append(f"  {change:+.2%}", style=GREEN if change >= 0 else RED)
     if record.executed is not None:
         n = len(record.executed.fills)
-        row.append(f"  {n} {'fill' if n == 1 else 'fills'}", style=MUTED)
+        row.append(f"  체결 {n}건", style=MUTED)
     if record.decision is not None:
-        row.append("  stopped out" if record.decision.is_stopped_out else "  decided", style=MUTED)
+        row.append("  손절" if record.decision.is_stopped_out else "  결정", style=MUTED)
     return row
 
 
@@ -398,41 +409,41 @@ def session_overview(record: SessionRecord) -> Group:
     in a few lines. Enter opens the full report."""
     parts: list = [
         Text.assemble((record.session, f"bold {BRIGHT}"),
-                      ("  ·  rebalance session" if record.rebalance else "  ·  valuation only", MUTED)),
+                      ("  ·  리밸런싱 세션" if record.rebalance else "  ·  평가만 수행", MUTED)),
         book_summary(record),
         Text(""),
     ]
     if record.executed is not None:
         x = record.executed
-        costs = f" · costs ${x.trading_cost:,.2f}" if x.trading_cost else ""
+        costs = f" · 비용 ${x.trading_cost:,.2f}" if x.trading_cost else ""
         parts.append(Text.assemble(
-            ("EXECUTED  ", f"bold {GREEN}"),
-            (f"decision from {x.as_of} · {len(x.orders)} orders · {len(x.fills)} fills{costs}", MUTED)))
+            ("실행됨  ", f"bold {GREEN}"),
+            (f"{x.as_of} 결정 · 주문 {len(x.orders)}건 · 체결 {len(x.fills)}건{costs}", MUTED)))
         for fill in x.fills[:8]:
             tone = GREEN if fill.side == "buy" else RED
             parts.append(Text.assemble(
-                (f"  {fill.side.upper():<4} ", f"bold {tone}"),
+                (f"  {_SIDE_LABEL[fill.side]} ", f"bold {tone}"),
                 (f"{fill.quantity:,} {fill.ticker}", TEXT),
                 (f" @ ${fill.price:,.2f}", MUTED)))
         if len(x.fills) > 8:
-            parts.append(Text(f"  … {len(x.fills) - 8} more", style=MUTED))
+            parts.append(Text(f"  외 {len(x.fills) - 8}건", style=MUTED))
         parts.append(Text(""))
     if record.decision is not None and record.decision.is_stopped_out:
         d = record.decision
         stop = next(c for c in d.clamps if c.limit == "max_drawdown_pct")
         parts.append(Text.assemble(
-            ("STOPPED OUT  ", f"bold {RED}"),
-            (f"drawdown {stop.before:.1%} breached the {d.spec.risk.max_drawdown_pct:.1%} limit · "
-             f"sells everything at the next {'bar' if is_intraday(record.session) else 'session'}'s close",
+            ("손절  ", f"bold {RED}"),
+            (f"낙폭 {stop.before:.1%}가 한도 {d.spec.risk.max_drawdown_pct:.1%}를 넘음 · "
+             f"다음 {'봉' if is_intraday(record.session) else '세션'} 종가에 전량 매도",
              MUTED)))
         parts.append(Text(""))
     elif record.decision is not None:
         d = record.decision
         n_signals = sum(len(sr.signals) for sr in d.strategies)
         parts.append(Text.assemble(
-            ("DECIDED  ", f"bold {CYAN}"),
-            (f"{n_signals} signals · executes at the next "
-             f"{'bar' if is_intraday(record.session) else 'session'}'s close", MUTED)))
+            ("결정  ", f"bold {CYAN}"),
+            (f"시그널 {n_signals}개 · 다음 "
+             f"{'봉' if is_intraday(record.session) else '세션'} 종가에 실행", MUTED)))
         targets = sorted(((t, w) for t, w in d.final_weights.items() if w), key=lambda x: -abs(x[1]))
         for ticker, weight in targets[:8]:
             parts.append(Text.assemble(
@@ -441,7 +452,7 @@ def session_overview(record: SessionRecord) -> Group:
         if not targets:
             parts.append(Text(f"  {_flat_line(d)}", style=MUTED))
         parts.append(Text(""))
-    parts.append(Text("enter for the full report", style=MUTED))
+    parts.append(Text("Enter로 전체 리포트 열기", style=MUTED))
     return Group(*parts)
 
 
@@ -449,9 +460,9 @@ def cost_line(trading_cost: float, traded_notional: float) -> str:
     """What the fills cost, as a fraction of what was traded: the number a
     desk compares against its alpha. Shared by the backtest header and CLI."""
     if traded_notional == 0:
-        return "no trades"
+        return "거래 없음"
     bps = trading_cost / traded_notional * 10_000
-    return f"costs ${trading_cost:,.0f} · {bps:.1f} bps of ${traded_notional:,.0f} traded"
+    return f"비용 ${trading_cost:,.0f} · 거래대금 ${traded_notional:,.0f}의 {bps:.1f} bps"
 
 
 def tape_table(tape: list[tuple[str, Fill, int]]) -> Table:
@@ -463,15 +474,15 @@ def tape_table(tape: list[tuple[str, Fill, int]]) -> Table:
         table.add_column(justify=justify)
 
     if not tape:
-        table.add_row(Text("no trades yet", style=MUTED))
+        table.add_row(Text("아직 거래 없음", style=MUTED))
         return table
 
     for as_of, fill, shares in list(reversed(tape))[:_TAPE_ROWS]:
-        side = (Text("BUY ", style=f"bold {GREEN}") if fill.side == "buy"
-                else Text("SELL", style=f"bold {RED}"))
-        book = (Text(f"→ long {shares}", style=GREEN) if shares > 0
-                else Text(f"→ short {-shares}", style=RED) if shares < 0
-                else Text("→ flat", style=MUTED))
+        side = (Text("매수", style=f"bold {GREEN}") if fill.side == "buy"
+                else Text("매도", style=f"bold {RED}"))
+        book = (Text(f"→ 롱 {shares}", style=GREEN) if shares > 0
+                else Text(f"→ 숏 {-shares}", style=RED) if shares < 0
+                else Text("→ 청산", style=MUTED))
         table.add_row(
             Text(as_of, style=MUTED),
             Text(fill.ticker, style=f"bold {CYAN}"),
@@ -482,7 +493,7 @@ def tape_table(tape: list[tuple[str, Fill, int]]) -> Table:
             book,
         )
     if len(tape) > _TAPE_ROWS:
-        table.add_row(Text(f"… {len(tape) - _TAPE_ROWS} earlier", style=MUTED))
+        table.add_row(Text(f"이전 거래 {len(tape) - _TAPE_ROWS}건", style=MUTED))
     return table
 
 
@@ -492,10 +503,10 @@ def _flat_line(decision: DecisionRecord) -> str:
     common case, and "no conviction" would be the wrong story to tell."""
     reasons = [(s.name, _FLAT_REASONS[s.flat_reason]) for s in decision.strategies if s.flat_reason]
     if not reasons:
-        return "flat — no conviction cleared the bar"
+        return "포지션 없음: 기준을 넘은 확신도 없음"
     if len(decision.strategies) == 1:
-        return f"flat — {reasons[0][1]}"
-    return "flat — " + "; ".join(f"{name}: {why}" for name, why in reasons)
+        return f"포지션 없음: {reasons[0][1]}"
+    return "포지션 없음: " + "; ".join(f"{name}: {why}" for name, why in reasons)
 
 
 def _live_verdict(desk: Desk) -> Text:
@@ -508,10 +519,12 @@ def _live_verdict(desk: Desk) -> Text:
         return Text.assemble((f"{glyph} ", colour), (label, f"bold {colour}"))
     stream = desk.stream
     if stream is None or stream.signal is None:
-        return Text("thinking", MUTED)
+        return Text("생각 중", MUTED)
     glyph, colour = _VERDICT_STYLE.get(stream.signal, ("·", MUTED))
-    return Text.assemble((f"{glyph} ", colour),
-                         (stream.verdict() or "", f"bold {colour}"))
+    label = _VERDICT_LABEL.get(stream.signal, stream.signal.upper())
+    if stream.confidence is not None:
+        label += f" {stream.confidence:.0f}%"
+    return Text.assemble((f"{glyph} ", colour), (label, f"bold {colour}"))
 
 
 def _live_thesis(desk: Desk) -> Text:
@@ -544,22 +557,22 @@ def _report_detail(record: CycleRecord | DecisionRecord, oid: str) -> Group | No
 def _session_book(record: SessionRecord) -> Group:
     """The marked book at a session's close, for sessions that only valued."""
     head = [
-        Text("PORTFOLIO", style=f"bold {BRIGHT}"),
-        Text(f"marked at the {record.session} close · no orders this session", style=MUTED),
+        Text("포트폴리오", style=f"bold {BRIGHT}"),
+        Text(f"{record.session} 종가 기준 평가 · 이번 세션 주문 없음", style=MUTED),
     ]
     if not record.positions:
-        return Group(*head, Text("flat — no positions", style=MUTED))
+        return Group(*head, Text("보유 포지션 없음", style=MUTED))
     table = Table(box=box.SQUARE, header_style="bold", border_style="#1f2b25")
-    table.add_column("Ticker", style=f"bold {CYAN}")
-    table.add_column("Side", justify="center")
-    table.add_column("Shares", justify="right")
-    table.add_column("Value", justify="right")
-    table.add_column("Weight", justify="right")
+    table.add_column("종목", style=f"bold {CYAN}")
+    table.add_column("방향", justify="center")
+    table.add_column("주식 수", justify="right")
+    table.add_column("평가액", justify="right")
+    table.add_column("비중", justify="right")
     for ticker in sorted(record.positions):
         shares = record.positions[ticker]
         value = shares * record.marks[ticker]
-        side = (Text("LONG", style=f"bold {GREEN}") if shares > 0
-                else Text("SHORT", style=f"bold {RED}"))
+        side = (Text("롱", style=f"bold {GREEN}") if shares > 0
+                else Text("숏", style=f"bold {RED}"))
         tone = GREEN if value >= 0 else RED
         table.add_row(ticker, side, f"{shares:+d}",
                       Text(f"${value:+,.0f}", style=tone),
@@ -571,38 +584,38 @@ def _jev_details(metadata: dict) -> Text:
     """Explain saved typed answers in the existing detail pane."""
     answers = metadata["response"]["answers"]
     probabilities = answers["direction"]["probabilities"]
-    details = Text("Jev answer-option probabilities\n", style=MUTED)
+    details = Text("Jev 답변 선택지별 확률\n", style=MUTED)
     details.append("  ·  ".join(
-        f"{direction.capitalize()} {probabilities[direction]:.1%}"
+        f"{_VERDICT_LABEL[direction]} {probabilities[direction]:.1%}"
         for direction in ("bullish", "bearish", "neutral")), style=TEXT)
-    details.append("\nThese describe the supplied answer options, not investment returns.\n\n")
-    details.append("Jev native answer confidence\n")
+    details.append("\n제시된 답변 선택지에 대한 확률이며 투자 수익률이 아닙니다.\n\n")
+    details.append("Jev 자체 답변 확신도\n")
     details.append("\n".join(
         f"{label}: {answers[name]['confidence']:.1%}"
         for name, label in (
-            ("direction", "Direction"),
-            ("bullish_strength", "Bullish strength"),
-            ("bearish_strength", "Bearish strength"),
+            ("direction", "방향"),
+            ("bullish_strength", "강세 강도"),
+            ("bearish_strength", "약세 강도"),
         )), style=TEXT)
     return details
 
 
 def _risk_detail(record: CycleRecord | DecisionRecord) -> Group:
     table = Table(box=box.SQUARE, header_style="bold", border_style="#1f2b25")
-    table.add_column("Scope", style=f"bold {CYAN}")
-    table.add_column("Requested", justify="right")
-    table.add_column("Allowed", justify="right")
-    table.add_column("Limit", style="dim")
+    table.add_column("범위", style=f"bold {CYAN}")
+    table.add_column("요청", justify="right")
+    table.add_column("허용", justify="right")
+    table.add_column("한도", style="dim")
     for c in record.clamps:
         table.add_row(
-            c.ticker or "whole book",
+            c.ticker or "포트폴리오 전체",
             Text(f"{c.before:+.2f}", style="yellow"),
             Text(f"{c.after:+.2f}", style="bold"),
             c.limit,
         )
     return Group(
-        Text.assemble(("RISK LIMITS  ", f"bold {BRIGHT}"),
-                      ("hard caps the agents cannot override", MUTED)),
+        Text.assemble(("리스크 한도  ", f"bold {BRIGHT}"),
+                      ("에이전트가 넘을 수 없는 고정 한도", MUTED)),
         Text(""),
         table,
     )
@@ -611,38 +624,38 @@ def _risk_detail(record: CycleRecord | DecisionRecord) -> Group:
 def _orders_detail(record: CycleRecord) -> Group:
     if not record.orders:
         return Group(
-            Text("ORDERS", style=f"bold {BRIGHT}"),
+            Text("주문", style=f"bold {BRIGHT}"),
             Text(""),
-            Text("none — no conviction cleared the bar today", style=MUTED),
+            Text("없음: 오늘은 기준을 넘은 확신도가 없음", style=MUTED),
         )
     table = Table(box=box.SQUARE, header_style="bold", border_style="#1f2b25")
-    table.add_column("Action", justify="center")
-    table.add_column("Quantity", justify="right")
-    table.add_column("Ticker", style=f"bold {CYAN}")
-    table.add_column("Mark", justify="right")
-    table.add_column("Fill", justify="right")
+    table.add_column("구분", justify="center")
+    table.add_column("수량", justify="right")
+    table.add_column("종목", style=f"bold {CYAN}")
+    table.add_column("평가가", justify="right")
+    table.add_column("체결가", justify="right")
     for o, fill in zip(record.orders, record.fills):
         tone = f"bold {GREEN}" if o.side == "buy" else f"bold {RED}"
         table.add_row(
-            Text(o.side.upper(), style=tone),
+            Text(_SIDE_LABEL[o.side], style=tone),
             Text(f"{o.quantity:,}", style=tone),
             o.ticker,
             f"${o.price:,.2f}",
             f"${fill.price:,.2f}",
         )
     if record.slippage or record.commission:
-        table.caption = f"slippage ${record.slippage:,.2f} · commission ${record.commission:,.2f}"
+        table.caption = f"슬리피지 ${record.slippage:,.2f} · 수수료 ${record.commission:,.2f}"
         table.caption_style = MUTED
         table.caption_justify = "left"
-    return Group(Text("ORDERS", style=f"bold {BRIGHT}"), Text(""), table)
+    return Group(Text("주문", style=f"bold {BRIGHT}"), Text(""), table)
 
 
 def _proposal_detail(record: DecisionRecord) -> Group:
     return Group(
-        Text("PROPOSED ALLOCATIONS", style=f"bold {BRIGHT}"),
-        Text("Targets only; no orders or fills have occurred.", style=MUTED),
+        Text("제안 배분", style=f"bold {BRIGHT}"),
+        Text("목표 비중만 정했고 주문이나 체결은 아직 없습니다.", style=MUTED),
         *(Text(f"{ticker}: {weight:+.2%}", style=TEXT)
           for ticker, weight in sorted(record.final_weights.items())),
-        *(Text(f"{strategy.name}: zero exposure — {strategy.flat_reason.replace('_', ' ')}", style=MUTED)
+        *(Text(f"{strategy.name}: 노출 없음({_FLAT_REASONS[strategy.flat_reason]})", style=MUTED)
           for strategy in record.strategies if strategy.flat_reason),
     )

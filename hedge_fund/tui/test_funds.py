@@ -29,7 +29,7 @@ def test_both_pickers_disable_only_invalid_configurations():
             menu = app.screen.query_one("#select-menu", OptionList)
             assert menu.option_count == 4
             prompts = [render(menu.get_option_at_index(i).prompt) for i in range(4)]
-            assert any("old.yaml" in p and "older format" in p for p in prompts)
+            assert any("old.yaml" in p and "이전 형식" in p for p in prompts)
             assert sum(menu.get_option_at_index(i).disabled for i in range(4)) == 2
             await pilot.press("enter")
             assert isinstance(app.screen, backtest.BacktestScreen)
@@ -51,7 +51,7 @@ def test_all_invalid_funds_do_not_crash_home_picker():
         app = HedgeFundApp()
         async with app.run_test() as pilot:
             await app.push_screen(funds.FundSelectScreen())
-            assert "Saved mandates are unavailable" in render(app.screen.query_one("#detail-body", Static).content)
+            assert "저장된 운용 지침을 사용할 수 없습니다" in render(app.screen.query_one("#detail-body", Static).content)
     asyncio.run(scenario())
 
 
@@ -70,7 +70,7 @@ def test_latest_backtest_sets_headline_regardless_of_version(newest_version):
     original = older.read_bytes()
     older_summary = research.summarize(older, 1000)
     assert research.last_score("test") == (.5, .4, "SPY")
-    assert "LATEST BACKTEST" in render(funds._fund_detail(spec, [older_summary]))
+    assert "최근 백테스트" in render(funds._fund_detail(spec, [older_summary]))
 
     receipt.pop("schema_version", None)
     if newest_version is not None:
@@ -82,6 +82,6 @@ def test_latest_backtest_sets_headline_regardless_of_version(newest_version):
     newer_summary = research.summarize(newer, 2000)
     assert research.last_score("test") == (.3, .2, "SPY")
     detail = render(funds._fund_detail(spec, [newer_summary, older_summary]))
-    headline = detail.split("\nBACKTESTS")[0]
-    assert "LATEST BACKTEST" in headline and "30.0%" in headline
+    headline = detail.split("\n백테스트 기록")[0]
+    assert "최근 백테스트" in headline and "30.0%" in headline
     assert older.read_bytes() == original

@@ -124,69 +124,69 @@ def main() -> None:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="aihf",
-        description="Run the AI hedge fund. No arguments: launch the interactive "
-        "app. `backtest` replays a mandate over history; `paper` deploys and "
-        "advances a paper fund.",
+        description="AI 헤지펀드를 실행합니다. 인자가 없으면 대화형 앱을 엽니다. "
+        "`backtest`는 운용 지침을 과거 데이터로 재현하고, `paper`는 모의투자 펀드를 "
+        "배포하고 진행합니다.",
     )
     parser.add_argument(
         "--model",
-        help="LLM the investor agents reason with, e.g. claude-opus-5-5 "
-        "(default: HEDGE_FUND_LLM_MODEL env, else the built-in default); quant "
-        "models ignore it",
+        help="투자자 에이전트가 쓸 LLM, 예: claude-opus-5-5 "
+        "(기본값: HEDGE_FUND_LLM_MODEL 환경 변수, 없으면 내장 기본값). 퀀트 "
+        "모델은 이 값을 무시합니다",
     )
     commands = parser.add_subparsers(dest="command")
 
     backtest = commands.add_parser(
-        "backtest", help="replay a mandate over history",
-        description="Replay a mandate over history: every benchmark session from "
-        "--start to --end, decisions at a rebalance session's close executed at "
-        "the next close. Full result JSON on stdout, a copy in research/.",
+        "backtest", help="운용 지침을 과거 데이터로 재현",
+        description="운용 지침을 과거 데이터로 재현합니다. --start부터 --end까지 벤치마크의 "
+        "모든 세션을 진행하며, 리밸런싱 세션 종가의 결정은 다음 종가에 체결됩니다. "
+        "전체 결과 JSON은 stdout으로 출력하고 사본을 research/에 저장합니다.",
     )
-    backtest.add_argument("mandate", help="path to a mandate YAML, e.g. ~/.hedge-fund/mandates/example.yaml")
+    backtest.add_argument("mandate", help="운용 지침 YAML 경로, 예: ~/.hedge-fund/mandates/example.yaml")
     backtest.add_argument("--universe", required=True, help=_UNIVERSE_HELP)
-    backtest.add_argument("--start", help=f"first session YYYY-MM-DD (default: {BACKTEST_WEEKS} weeks before --end)")
-    backtest.add_argument("--end", help="last session YYYY-MM-DD (default: the latest completed session)")
-    backtest.add_argument("--out", help="also write the result JSON to this file")
+    backtest.add_argument("--start", help=f"첫 세션 YYYY-MM-DD (기본값: --end의 {BACKTEST_WEEKS}주 전)")
+    backtest.add_argument("--end", help="마지막 세션 YYYY-MM-DD (기본값: 가장 최근에 끝난 세션)")
+    backtest.add_argument("--out", help="결과 JSON을 이 파일에도 저장")
 
-    paper = commands.add_parser("paper", help="deploy and advance a paper fund")
+    paper = commands.add_parser("paper", help="모의투자 펀드 배포와 진행")
     actions = paper.add_subparsers(dest="action", required=True)
 
-    create = actions.add_parser("create", help="deploy a mandate as a paper fund")
-    create.add_argument("name", help="fund name; becomes ~/.hedge-fund/paper/<name>/")
-    create.add_argument("--mandate", required=True, help="path to a mandate YAML")
+    create = actions.add_parser("create", help="운용 지침을 모의투자 펀드로 배포")
+    create.add_argument("name", help="펀드 이름. ~/.hedge-fund/paper/<name>/ 디렉터리가 됩니다")
+    create.add_argument("--mandate", required=True, help="운용 지침 YAML 경로")
     create.add_argument("--universe", required=True, help=_UNIVERSE_HELP)
 
-    advance = actions.add_parser("tick", help="advance the fund by one session")
+    advance = actions.add_parser("tick", help="펀드를 세션 하나만큼 진행")
     advance.add_argument("name")
-    advance.add_argument("--session", help="the session to record (YYYY-MM-DD, or a bar's YYYY-MM-DDTHH:MM:SS); "
-                                           "must be the next unrecorded one")
+    advance.add_argument("--session", help="기록할 세션(YYYY-MM-DD, 봉이면 YYYY-MM-DDTHH:MM:SS). "
+                                           "다음 미기록 세션이어야 합니다")
     advance.add_argument("--again", action="store_true",
-                         help="run the latest recorded session again and replace its record")
+                         help="마지막으로 기록된 세션을 다시 실행하고 기록을 교체")
 
-    runner = actions.add_parser("run", help="stay up and advance the fund whenever a session is due")
+    runner = actions.add_parser("run", help="계속 실행하며 세션이 돌아올 때마다 펀드를 진행")
     runner.add_argument("name")
 
-    stopper = actions.add_parser("stop", help="stop a fund's runner after the session in flight")
+    stopper = actions.add_parser("stop", help="진행 중인 세션이 끝나면 펀드 러너를 중지")
     stopper.add_argument("name")
 
-    status = actions.add_parser("status", help="NAV, last session, pending decision, halt state")
+    status = actions.add_parser("status", help="NAV, 마지막 세션, 대기 중인 결정, 거래 중지 상태")
     status.add_argument("name")
 
-    actions.add_parser("list", help="every deployed paper fund")
+    actions.add_parser("list", help="배포된 모든 모의투자 펀드")
 
-    scorecard = actions.add_parser("scorecard", help="grade every analyst and strategy on the ledger")
+    scorecard = actions.add_parser("scorecard", help="원장 기준으로 모든 애널리스트와 전략을 평가")
     scorecard.add_argument("name")
 
-    halt = actions.add_parser("halt", help="set the kill switch: ticks refuse to trade")
+    halt = actions.add_parser("halt", help="킬 스위치 설정: 틱이 거래를 거부합니다")
     halt.add_argument("name")
-    halt.add_argument("--reason", required=True)
+    halt.add_argument("--reason", required=True, help="거래 중지 사유")
 
-    resume = actions.add_parser("resume", help="clear the kill switch")
+    resume = actions.add_parser("resume", help="킬 스위치 해제")
     resume.add_argument("name")
     return parser
 
 
-_UNIVERSE_HELP = "tickers to trade, comma or space separated, e.g. AAPL,MSFT,NVDA"
+_UNIVERSE_HELP = "거래할 종목, 쉼표나 공백으로 구분, 예: AAPL,MSFT,NVDA"
 
 
 def _universe(text: str, parser: argparse.ArgumentParser) -> list[str]:
@@ -203,7 +203,7 @@ def _fund_dir(name: str, parser: argparse.ArgumentParser) -> Path:
         parser.error(str(exc))
     directory = PAPER_DIR / name
     if not directory.is_dir():
-        parser.error(f"no paper fund named {name!r} under {PAPER_DIR} (see `aihf paper list`)")
+        parser.error(f"{PAPER_DIR}에 {name!r} 모의투자 펀드가 없습니다(`aihf paper list`로 확인)")
     return directory
 
 
@@ -227,9 +227,9 @@ def _backtest(args, parser: argparse.ArgumentParser, console: Console) -> None:
     with open_data_client(FDClient) as raw:
         fd = CachedDataClient(raw)
         with console.status(
-            f"[cyan]{spec.name}: backtesting {start} → {end} "
-            f"({spec.rebalance} rebalance vs {spec.benchmark}) "
-            f"over {', '.join(universe)}…",
+            f"[cyan]{spec.name}: {start} → {end} 백테스트 중 "
+            f"({spec.cadence_label} 리밸런싱, 벤치마크 {spec.benchmark}) "
+            f"종목 {', '.join(universe)}...",
             spinner="dots",
         ):
             result = backtest_fund(fund, start, end, fd, universe)
@@ -242,15 +242,15 @@ def _backtest(args, parser: argparse.ArgumentParser, console: Console) -> None:
     m = result.metrics
     console.print(
         f"[bold]{spec.name}[/] {result.start} → {result.end}  ·  "
-        f"{len(result.dates)} sessions  ·  {m.n_cycles} rebalances  ·  {m.n_orders} orders  ·  "
+        f"세션 {len(result.dates)}개  ·  리밸런싱 {m.n_cycles}회  ·  주문 {m.n_orders}건  ·  "
         f"{cost_line(m.trading_cost, m.traded_notional)}  ·  "
-        f"return {m.total_return_pct:+.1%} vs {spec.benchmark} {m.benchmark_return_pct:+.1%}  ·  "
-        f"sharpe {m.sharpe_ratio:.2f}  ·  max drawdown {m.max_drawdown_pct:.1%}"
+        f"수익률 {m.total_return_pct:+.1%} (벤치마크 {spec.benchmark} {m.benchmark_return_pct:+.1%})  ·  "
+        f"샤프 지수 {m.sharpe_ratio:.2f}  ·  최대 낙폭 {m.max_drawdown_pct:.1%}"
     )
     card = score(result.records)
     console.print(analyst_table(card))
     console.print(strategy_table(card))
-    console.print(f"[dim]saved to {saved}[/]")
+    console.print(f"[dim]저장 위치: {saved}[/]")
 
 
 # ---------------------------------------------------------------------------
@@ -271,11 +271,11 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
             parser.error(str(exc))
         cadence = f"{spec.cadence_label}, {spec.window.label}" if spec.is_intraday else spec.cadence_label
         console.print(
-            f"[bold]{args.name}[/] deployed at {directory}  ·  mandate {spec.name}  ·  "
+            f"[bold]{args.name}[/] 배포 완료: {directory}  ·  운용 지침 {spec.name}  ·  "
             f"{', '.join(universe)}  ·  ${spec.capital:,.0f}  ·  {cadence}"
         )
-        console.print(f"[dim]next: `aihf paper tick {args.name}` to run one session, `aihf paper run "
-                      f"{args.name}` to leave it running, `aihf paper status {args.name}` any time[/]")
+        console.print(f"[dim]다음: 세션 하나 실행은 `aihf paper tick {args.name}`, 계속 실행은 `aihf paper run "
+                      f"{args.name}`, 상태 확인은 언제든 `aihf paper status {args.name}`[/]")
         return
 
     if args.action == "list":
@@ -289,9 +289,9 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
         deployed = load_deployed(directory)
         with open_data_client(FDClient) as raw:
             fd = CachedDataClient(raw, live=deployed.spec.is_intraday)
-            verb = "running the latest session again" if args.again else "advancing one session"
+            verb = "마지막 세션 다시 실행 중" if args.again else "세션 하나 진행 중"
             with console.status(
-                f"[cyan]{deployed.name}: {verb} over {', '.join(deployed.universe)}…", spinner="dots",
+                f"[cyan]{deployed.name}: {verb}, 종목 {', '.join(deployed.universe)}...", spinner="dots",
             ):
                 record = (redo(directory, fd, build_fund=None) if args.again
                           else tick(directory, fd, session=args.session))
@@ -302,13 +302,13 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
     if args.action == "run":
         deployed = load_deployed(directory)
         spec = deployed.spec
-        cadence = f"{spec.cadence_label}, {spec.window.label}" if spec.is_intraday else spec.rebalance
-        console.print(f"[bold]{deployed.name}[/] running {cadence}  ·  "
-                      f"{', '.join(deployed.universe)}  ·  Ctrl-C or `aihf paper stop {deployed.name}` to stop")
+        cadence = f"{spec.cadence_label}, {spec.window.label}" if spec.is_intraday else spec.cadence_label
+        console.print(f"[bold]{deployed.name}[/] 실행 중: {cadence}  ·  "
+                      f"{', '.join(deployed.universe)}  ·  중지하려면 Ctrl-C 또는 `aihf paper stop {deployed.name}`")
 
         def _event(kind: str, fields: dict) -> None:
-            detail = fields.get("reason") or (f"{fields.get('bars_skipped')} bars skipped" if "bars_skipped" in fields else "")
-            console.print(f"[yellow]{kind}[/] {fields.get('from') or 'start'} → {fields.get('to')}  {detail}".rstrip())
+            detail = fields.get("reason") or (f"봉 {fields.get('bars_skipped')}개 건너뜀" if "bars_skipped" in fields else "")
+            console.print(f"[yellow]{kind}[/] {fields.get('from') or '시작'} → {fields.get('to')}  {detail}".rstrip())
 
         with open_data_client(FDClient) as raw:
             try:
@@ -318,14 +318,14 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
             except RuntimeError as exc:  # already running
                 console.print(f"[red]{exc}[/]")
                 sys.exit(1)
-        console.print(f"[dim]{deployed.name} stopped[/]")
+        console.print(f"[dim]{deployed.name} 중지됨[/]")
         return
 
     if args.action == "stop":
         if stop_runner(directory):
-            console.print(f"[green]{args.name}[/] asked to stop; it finishes the session in flight first")
+            console.print(f"[green]{args.name}[/] 중지를 요청했습니다. 진행 중인 세션을 마친 뒤 멈춥니다")
         else:
-            console.print(f"[dim]{args.name} is not running[/]")
+            console.print(f"[dim]{args.name}은(는) 실행 중이 아닙니다[/]")
         return
 
     if args.action == "status":
@@ -333,12 +333,12 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
         ledger = Ledger(directory)
         latest = ledger.latest()
         if latest is not None and latest.decision is not None:
-            when = "bar" if load_deployed(directory).spec.is_intraday else "close"
-            print(f"  pending decision, to execute at the next {when}:")
+            when = "봉" if load_deployed(directory).spec.is_intraday else "종가"
+            print(f"  대기 중인 결정, 다음 {when}에 체결:")
             for ticker, weight in sorted(latest.decision.final_weights.items()):
                 print(f"    {ticker}: {weight:+.2%}")
         if latest is not None and latest.positions:
-            print("  book:")
+            print("  보유 현황:")
             for ticker, shares in sorted(latest.positions.items()):
                 print(f"    {ticker}: {shares:+d} @ {latest.marks[ticker]:,.2f}")
         return
@@ -346,7 +346,7 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
     if args.action == "scorecard":
         records = Ledger(directory).records()
         if not records:
-            console.print(f"[dim]{args.name} has no sessions recorded yet[/]")
+            console.print(f"[dim]{args.name}에는 아직 기록된 세션이 없습니다[/]")
             return
         card = score(records)
         print(card.model_dump_json(indent=2))
@@ -357,46 +357,46 @@ def _paper(args, parser: argparse.ArgumentParser, console: Console) -> None:
     ledger = Ledger(directory)
     if args.action == "halt":
         ledger.halt(args.reason)
-        console.print(f"[red]{args.name} halted:[/] {args.reason}")
+        console.print(f"[red]{args.name} 거래 중지됨:[/] {args.reason}")
     elif args.action == "resume":
         ledger.resume()
-        console.print(f"[green]{args.name} resumed[/]")
+        console.print(f"[green]{args.name} 재개됨[/]")
 
 
 def _status_line(directory: Path) -> str:
     try:
         deployed = load_deployed(directory)
     except ValueError as exc:
-        return f"{directory.name:<18} unavailable: {exc}"
+        return f"{directory.name:<18} 불러올 수 없음: {exc}"
     ledger = Ledger(directory)
     latest = ledger.latest()
     halted = ledger.halted()
     if latest is None:
-        state = f"not started  ·  ${deployed.spec.capital:,.0f}"
+        state = f"시작 전  ·  ${deployed.spec.capital:,.0f}"
     else:
         ret = latest.nav / deployed.spec.capital - 1
-        state = (f"{len(ledger.sessions())} sessions  ·  last {latest.session}  ·  "
+        state = (f"세션 {len(ledger.sessions())}개  ·  마지막 {latest.session}  ·  "
                  f"NAV ${latest.nav:,.2f} ({ret:+.2%})")
-    flag = f"  ·  HALTED: {halted}" if halted else ""
-    running = "  ·  running" if is_running(directory) else ""
+    flag = f"  ·  거래 중지됨: {halted}" if halted else ""
+    running = "  ·  실행 중" if is_running(directory) else ""
     return (f"{deployed.name:<18} {deployed.spec.name}  ·  {' '.join(deployed.universe)}  ·  "
             f"{deployed.spec.cadence_label}{running}  ·  {state}{flag}")
 
 
 def _tick_summary(name: str, record: SessionRecord) -> str:
-    parts = [f"[bold]{name}[/] · session {record.session} · NAV ${record.nav:,.2f}"]
+    parts = [f"[bold]{name}[/] · 세션 {record.session} · NAV ${record.nav:,.2f}"]
     if record.executed is not None:
-        costs = f", costs ${record.executed.trading_cost:,.2f}" if record.executed.trading_cost else ""
-        parts.append(f"executed {len(record.executed.orders)} orders from {record.executed.as_of}{costs}")
+        costs = f", 비용 ${record.executed.trading_cost:,.2f}" if record.executed.trading_cost else ""
+        parts.append(f"{record.executed.as_of} 결정의 주문 {len(record.executed.orders)}건 체결{costs}")
     if record.decision is not None and record.decision.is_stopped_out:
         stop = next(c for c in record.decision.clamps if c.limit == "max_drawdown_pct")
-        parts.append(f"stopped out at {stop.before:.1%} drawdown; sells everything next session")
+        parts.append(f"낙폭 {stop.before:.1%}에서 손절, 다음 세션에 전량 매도")
     elif record.decision is not None:
         n_signals = sum(len(sr.signals) for sr in record.decision.strategies)
-        when = "bar" if is_intraday(record.session) else "close"
-        parts.append(f"decided on {n_signals} signals, {len(record.decision.clamps)} clamps; executes next {when}")
+        when = "봉" if is_intraday(record.session) else "종가"
+        parts.append(f"시그널 {n_signals}개, 한도 조정 {len(record.decision.clamps)}건으로 결정, 다음 {when}에 체결")
     if record.executed is None and record.decision is None:
-        parts.append("marked the book; no rebalance due")
+        parts.append("보유 현황 평가, 리밸런싱 없음")
     return "  ·  ".join(parts)
 
 

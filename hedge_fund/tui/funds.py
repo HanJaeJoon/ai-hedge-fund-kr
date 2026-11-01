@@ -39,8 +39,8 @@ class FundSelectScreen(Screen):
     """
 
     BINDINGS = [
-        Binding("escape", "back", "back"),
-        Binding("d", "delete", "delete mandate"),
+        Binding("escape", "back", "뒤로"),
+        Binding("d", "delete", "운용 지침 삭제"),
     ]
 
     def __init__(self) -> None:
@@ -50,7 +50,7 @@ class FundSelectScreen(Screen):
     def compose(self) -> ComposeResult:
         with Horizontal(id="select"):
             with Vertical(id="select-rail"):
-                yield Static(Text("YOUR MANDATES", style=MUTED), classes="rail-title")
+                yield Static(Text("내 운용 지침", style=MUTED), classes="rail-title")
                 yield OptionList(id="select-menu")
             with VerticalScroll(id="select-detail"):
                 yield Static("", id="detail-body")
@@ -74,12 +74,12 @@ class FundSelectScreen(Screen):
         menu.clear_options()
         if not self._slots:
             self.query_one("#detail-body", Static).update(
-                Text("No funds yet — build one under Paper trading and it shows up here too.",
+                Text("아직 펀드가 없습니다. 모의투자에서 만들면 여기에도 나타납니다.",
                      style=MUTED))
             return
         for i, entry in enumerate(self._slots):
             if entry.spec is None:
-                menu.add_option(Option(Text(f"{entry.path.name} — Unavailable\n{entry.error}", style=MUTED),
+                menu.add_option(Option(Text(f"{entry.path.name} - 사용할 수 없음\n{entry.error}", style=MUTED),
                                        id=f"unavailable:{i}", disabled=True))
             else:
                 menu.add_option(Option(
@@ -93,7 +93,7 @@ class FundSelectScreen(Screen):
             self._show_detail(first)
         else:
             self.query_one("#detail-body", Static).update(
-                Text("Saved mandates are unavailable. Recreate them in the builder or update their configurations.", style=MUTED))
+                Text("저장된 운용 지침을 사용할 수 없습니다. 펀드 만들기에서 다시 만들거나 설정을 고치십시오.", style=MUTED))
 
     @on(OptionList.OptionHighlighted, "#select-menu")
     def _hover(self, event: OptionList.OptionHighlighted) -> None:
@@ -135,8 +135,7 @@ class FundSelectScreen(Screen):
         gone = _delete_fund(path, spec.name, with_history=(scope == "all"))
         self._summaries.clear()  # the cache is keyed on paths that just went
         self._populate()
-        self.notify(f"Deleted {spec.name} — {gone} "
-                    f"{'file' if gone == 1 else 'files'} removed")
+        self.notify(f"{spec.name} 삭제됨, 파일 {gone}개 제거")
 
     def _show_detail(self, i: int) -> None:
         spec = self._slots[i].spec
@@ -169,8 +168,8 @@ class ConfirmWipeScreen(ModalScreen[bool]):
     """
 
     BINDINGS = [
-        Binding("escape", "cancel", "keep it"),
-        Binding("enter", "confirm", "yes", priority=True),
+        Binding("escape", "cancel", "유지"),
+        Binding("enter", "confirm", "예", priority=True),
     ]
 
     def __init__(self, name: str, *, replacing: bool = False) -> None:
@@ -179,13 +178,13 @@ class ConfirmWipeScreen(ModalScreen[bool]):
         self._replacing = replacing
 
     def compose(self) -> ComposeResult:
-        verb = "Replace" if self._replacing else "Delete"
-        then = "The new fund takes the name." if self._replacing else "The name is free again."
-        yes = ("replace it — the new fund starts from nothing" if self._replacing else "delete it")
-        no = "keep it and pick another name" if self._replacing else "keep it"
+        verb = "교체" if self._replacing else "삭제"
+        then = "새 펀드가 이 이름을 씁니다." if self._replacing else "이 이름을 다시 쓸 수 있습니다."
+        yes = ("교체 - 새 펀드는 처음부터 시작합니다" if self._replacing else "삭제")
+        no = "유지하고 다른 이름 고르기" if self._replacing else "유지"
         with Vertical(id="confirm"):
             yield Static(Text.assemble(
-                (f"{verb} ", f"bold {BRIGHT}"), (self._name, f"bold {RED}"), ("?", f"bold {BRIGHT}")),
+                (self._name, f"bold {RED}"), (f" 펀드를 {verb}할까요?", f"bold {BRIGHT}")),
                 id="confirm-q")
             yield Static(_wipe_manifest(self._name, then), id="confirm-files")
             yield Static(Text.assemble(
@@ -208,9 +207,9 @@ class ConfirmDeleteScreen(ModalScreen[str | None]):
     """
 
     BINDINGS = [
-        Binding("escape", "cancel", "cancel"),
-        Binding("enter", "delete_mandate", "delete the mandate", priority=True),
-        Binding("ctrl+d", "delete_all", "delete mandate + history",
+        Binding("escape", "cancel", "취소"),
+        Binding("enter", "delete_mandate", "운용 지침 삭제", priority=True),
+        Binding("ctrl+d", "delete_all", "운용 지침 + 기록 삭제",
                 priority=True),
     ]
 
@@ -223,15 +222,14 @@ class ConfirmDeleteScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="confirm"):
             yield Static(Text.assemble(
-                ("Delete ", f"bold {BRIGHT}"),
                 (self._spec.name, f"bold {RED}"),
-                ("?", f"bold {BRIGHT}")), id="confirm-q")
+                (" 운용 지침을 삭제할까요?", f"bold {BRIGHT}")), id="confirm-q")
             yield Static(self._manifest(), id="confirm-files")
             yield Static(Text.assemble(
-                ("enter", f"bold {GREEN}"), ("   delete the mandate\n", MUTED),
+                ("enter", f"bold {GREEN}"), ("   운용 지침 삭제\n", MUTED),
                 ("ctrl+d", f"bold {RED}"),
-                ("  delete the mandate and its history\n", MUTED),
-                ("esc", f"bold {BRIGHT}"), ("     cancel", MUTED)),
+                ("  운용 지침과 백테스트 기록 삭제\n", MUTED),
+                ("esc", f"bold {BRIGHT}"), ("     취소", MUTED)),
                 id="confirm-keys")
         yield Footer()
 
@@ -240,18 +238,17 @@ class ConfirmDeleteScreen(ModalScreen[str | None]):
         when the thing being counted cannot be recovered."""
         lines = Text()
         lines.append(f"{self._path.name}\n", style=TEXT)
-        lines.append("  the mandate — strategies, staff, risk, capital\n\n",
+        lines.append("  운용 지침 - 전략, 에이전트, 리스크, 자본금\n\n",
                      style=MUTED)
         if self._backtests:
             lines.append(
-                f"{self._backtests} "
-                f"{'backtest' if self._backtests == 1 else 'backtests'}\n",
+                f"백테스트 {self._backtests}개\n",
                 style=CYAN)
-            lines.append("  saved results — kept unless you press ctrl+d",
+            lines.append("  저장된 결과 - ctrl+d를 누르지 않으면 남습니다",
                          style=MUTED)
         else:
-            lines.append("No saved backtests.", style=MUTED)
-        lines.append("\n\nPaper funds deployed from this mandate keep their own copy.",
+            lines.append("저장된 백테스트가 없습니다.", style=MUTED)
+        lines.append("\n\n이 운용 지침으로 배포한 모의투자 펀드는 자체 사본을 유지합니다.",
                      style=MUTED)
         return lines
 
@@ -321,21 +318,21 @@ def _wipe_manifest(name: str, then: str) -> Text:
     lines = Text()
     if (paths.MANDATES_DIR / f"{name}.yaml").exists():
         lines.append(f"{name}.yaml\n", style=TEXT)
-        lines.append("  the saved definition — strategies, staff, risk, capital\n", style=MUTED)
+        lines.append("  저장된 정의 - 전략, 에이전트, 리스크, 자본금\n", style=MUTED)
     backtests = len(receipts(name))
     if backtests:
-        lines.append(f"{backtests} {'backtest' if backtests == 1 else 'backtests'}\n", style=CYAN)
-        lines.append("  saved results\n", style=MUTED)
+        lines.append(f"백테스트 {backtests}개\n", style=CYAN)
+        lines.append("  저장된 결과\n", style=MUTED)
     directory = paths.PAPER_DIR / name
     if directory.exists():
         try:
             sessions = len(Ledger(directory).records())
-            what = f"{sessions} {'session' if sessions == 1 else 'sessions'} of ledger"
+            what = f"원장 세션 {sessions}개"
         except (LedgerError, OSError, ValueError):
-            what = "its ledger"
-        lines.append("paper fund\n", style=RED)
-        lines.append(f"  {what}, the book, and every event — the track record\n", style=MUTED)
-    lines.append(f"\n{then} None of this can be recovered.", style=MUTED)
+            what = "원장"
+        lines.append("모의투자 펀드\n", style=RED)
+        lines.append(f"  {what}, 보유 현황, 모든 이벤트 - 운용 실적 전체\n", style=MUTED)
+    lines.append(f"\n{then} 이 중 어느 것도 복구할 수 없습니다.", style=MUTED)
     return lines
 
 
@@ -354,7 +351,7 @@ def _slot_card(index: int, spec: FundSpec, score: tuple | None) -> Text:
         up = total >= 0
         card.append(f"   {'▲' if up else '▼'} {total:+.1%}",
                     style=f"bold {GREEN if up else RED}")
-    card.append(f"\n     {n} {'strategy' if n == 1 else 'strategies'}"
+    card.append(f"\n     전략 {n}개"
                 f"  ·  {cadence_identity(spec)}", style=MUTED)
     card.append("\n     " + ", ".join(MODE_LABELS[s.blend.mode] for s in spec.strategies), style=MUTED)
     return card
@@ -371,21 +368,21 @@ def _fund_detail(spec: FundSpec, history: list[dict]) -> Group:
     parts.extend(Text(f"{s.title}: {strategy_description(s)}", style=MUTED) for s in spec.strategies)
 
     if not history:
-        parts.append(Text("\nNo backtests yet.", style=MUTED))
-        parts.append(Text("\nEnter to backtest this mandate over history",
+        parts.append(Text("\n아직 백테스트가 없습니다.", style=MUTED))
+        parts.append(Text("\nEnter를 누르면 이 운용 지침을 과거 데이터로 백테스트합니다",
                           style=MUTED))
         return Group(*parts)
 
     latest = history[0]
     facts = [f"{latest['start']} → {latest['end']}",
-             f"{latest['n_cycles']} cycles"]
+             f"리밸런싱 {latest['n_cycles']}회"]
     if latest["universe"]:
         facts.append(" ".join(latest["universe"]))
-    parts.append(Text("\nLATEST BACKTEST", style=f"bold {BRIGHT}"))
+    parts.append(Text("\n최근 백테스트", style=f"bold {BRIGHT}"))
     parts.append(Text("  ·  ".join(facts), style=MUTED))
     parts.append(_stat_list(latest))
 
-    parts.append(Text("\nBACKTESTS", style=f"bold {BRIGHT}"))
+    parts.append(Text("\n백테스트 기록", style=f"bold {BRIGHT}"))
     # Three columns, not four. The kind and the number are pinned with no_wrap
     # so a narrow pane can never drop the result — the tickers ride along in
     # the middle column and are the only thing allowed to ellipsize.
@@ -400,7 +397,7 @@ def _fund_detail(spec: FundSpec, history: list[dict]) -> Group:
         if h["universe"]:
             when.append(f"  {short_tickers(h['universe'])}", style=CYAN)
         log.add_row(
-            Text("backtest", style=MUTED), when,
+            Text("백테스트", style=MUTED), when,
             Text(f"{h['total']:+.1%}", style=GREEN if up else RED),
         )
     parts.append(log)
@@ -417,17 +414,17 @@ def _stat_list(bt: dict) -> Table:
     table = Table(box=None, show_header=False, padding=(0, 1), pad_edge=False)
     table.add_column(style=MUTED, width=14)
     table.add_column(justify="right", min_width=8)
-    table.add_row("Total return", Text(
+    table.add_row("총수익률", Text(
         f"{bt['total']:+.1%}",
         style=f"bold {GREEN if bt['total'] >= 0 else RED}"))
-    table.add_row("Annualized", Text(f"{bt['annualized']:+.1%}", style=TEXT))
-    table.add_row("Sharpe", Text(
+    table.add_row("연환산 수익률", Text(f"{bt['annualized']:+.1%}", style=TEXT))
+    table.add_row("샤프 지수", Text(
         f"{bt['sharpe']:.2f}",
         style=(GREEN if bt["sharpe"] > 1
                else "yellow" if bt["sharpe"] > 0 else RED)))
-    table.add_row("Max drawdown", Text(f"{bt['maxdd']:.1%}", style=RED))
+    table.add_row("최대 낙폭", Text(f"{bt['maxdd']:.1%}", style=RED))
     table.add_row(bt["benchmark"], Text(f"{bt['benchret']:+.1%}", style=TEXT))
-    table.add_row("Excess", Text(
+    table.add_row("초과 수익률", Text(
         f"{bt['excess']:+.1%}",
         style=f"bold {GREEN if bt['excess'] >= 0 else RED}"))
     return table

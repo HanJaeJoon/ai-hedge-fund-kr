@@ -103,12 +103,12 @@ def test_home_offers_paper_trading_first_and_an_empty_paper_screen_builds():
             assert isinstance(app.screen, paper.PaperScreen)
             rail = app.screen.query_one("#paper-menu", OptionList)
             assert [rail.get_option_at_index(i).id for i in range(rail.option_count)] == ["build"]
-            assert "No funds yet" in render(app.screen.query_one("#detail-body", Static).content)
+            assert "아직 펀드가 없습니다" in render(app.screen.query_one("#detail-body", Static).content)
             # h/r/s have nothing to act on; enter still opens the builder.
             assert not app.screen.check_action("halt", ()) and not app.screen.check_action("sessions", ())
             await pilot.press("enter")
             assert isinstance(app.screen, builder.BuilderScreen) and app.screen.mode == "paper"
-            assert "BUILD A FUND" in render(app.screen.query_one(".rail-title", Static).content)
+            assert "펀드 만들기" in render(app.screen.query_one(".rail-title", Static).content)
             assert app.screen.STEP_IDS[-1] == "step-tickers"
             await pilot.press("escape")
             assert isinstance(app.screen, paper.PaperScreen)

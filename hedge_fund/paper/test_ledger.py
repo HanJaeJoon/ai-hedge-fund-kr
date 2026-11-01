@@ -52,17 +52,17 @@ def test_append_then_replay_rebuilds_the_state(tmp_path, records):
 def test_append_refuses_duplicates_gaps_and_bad_hashes(tmp_path, records):
     ledger = Ledger(tmp_path)
     ledger.append(records[0])
-    with pytest.raises(LedgerError, match="already recorded"):
+    with pytest.raises(LedgerError, match="이미 기록되어"):
         ledger.append(records[0])
-    with pytest.raises(LedgerError, match="does not chain"):
+    with pytest.raises(LedgerError, match="체인으로 이어지지 않습니다"):
         ledger.append(records[2])  # skipped records[1]
     tampered = records[1].model_copy(update={"nav": 1.0})
-    with pytest.raises(LedgerError, match="hash does not match"):
+    with pytest.raises(LedgerError, match="해시가 내용과 일치하지 않습니다"):
         ledger.append(tampered)
     ledger.append(records[1])
     backdated = records[2].model_copy(update={"session": "2024-05-31"})
     backdated.hash = backdated.compute_hash()
-    with pytest.raises(LedgerError, match="not after"):
+    with pytest.raises(LedgerError, match="뒤가 아닙니다"):
         ledger.append(backdated)
     assert ledger.sessions() == WEEKDAYS[:2]
 
@@ -75,7 +75,7 @@ def test_replay_detects_an_edited_record(tmp_path, records):
     data = json.loads(path.read_text())
     data["cash"] = 999.0
     path.write_text(json.dumps(data))
-    with pytest.raises(LedgerError, match="altered"):
+    with pytest.raises(LedgerError, match="기록된 뒤 변경"):
         ledger.replay(100_000)
 
 
@@ -84,7 +84,7 @@ def test_replay_detects_a_missing_link(tmp_path, records):
     for record in records[:3]:
         ledger.append(record)
     ledger.path(WEEKDAYS[1]).unlink()
-    with pytest.raises(LedgerError, match="chain broken at session 2024-06-05"):
+    with pytest.raises(LedgerError, match="세션 2024-06-05에서 체인이 끊겼습니다"):
         ledger.replay(100_000)
 
 
@@ -131,9 +131,9 @@ def test_checkpoint_shortcuts_replay_and_is_ignored_once_the_chain_moves_under_i
     records = _chain(MONDAY + TUESDAY)
     for record in records[:3]:
         ledger.append(record)
-    with pytest.raises(LedgerError, match="only a minute fund"):
+    with pytest.raises(LedgerError, match="분 단위 펀드"):
         ledger.checkpoint(FundState.initial(1.0))
-    with pytest.raises(LedgerError, match="does not match the chain's head"):
+    with pytest.raises(LedgerError, match="체인의 마지막 기록과 일치하지 않습니다"):
         ledger.checkpoint(ledger.replay(100_000, before=MONDAY[2]))
     monday_close = ledger.replay(100_000)
     path = ledger.checkpoint(monday_close)

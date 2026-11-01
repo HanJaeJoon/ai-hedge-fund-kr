@@ -15,7 +15,7 @@ from hedge_fund.tui.shared import VERSION
 class HedgeFundApp(App):
     """The v2 terminal app. One screen stack: Home → Backtest / Paper / Builder."""
 
-    TITLE = "AI Hedge Fund"
+    TITLE = "AI 헤지펀드"
     SUB_TITLE = f"v{VERSION}"
     CSS_PATH = "app.tcss"
     ansi_theme_dark = ANSI_THEME
@@ -24,7 +24,7 @@ class HedgeFundApp(App):
     # focused Input, else just hints how to quit). Users reflexively hit
     # ctrl+c to leave, so restore it: priority=True so it fires before the
     # system binding AND any focused widget, quitting from anywhere.
-    BINDINGS = [Binding("ctrl+c", "quit", "quit", priority=True, show=False)]
+    BINDINGS = [Binding("ctrl+c", "quit", "종료", priority=True, show=False)]
 
     def on_mount(self) -> None:
         # Saved keys become environment variables before any screen builds an

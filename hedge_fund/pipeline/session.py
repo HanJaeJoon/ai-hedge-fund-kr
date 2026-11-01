@@ -151,14 +151,14 @@ def advance(
     spec = fund.spec
     clock = clock or clock_for(spec, data_client)
     if state.halted is not None:
-        raise FundHalted(f"{spec.name} is halted: {state.halted}")
+        raise FundHalted(f"{spec.name}은(는) 거래 중지됨: {state.halted}")
     if state.last_session is not None and session <= state.last_session:
         raise ValueError(
-            f"{spec.name}: session {session} is not after the last recorded "
-            f"session {state.last_session}"
+            f"{spec.name}: 세션 {session}이(가) 마지막으로 기록된 "
+            f"세션 {state.last_session}보다 뒤가 아닙니다"
         )
     if not clock.is_complete(session):
-        raise ValueError(f"{spec.name}: session {session} is not complete yet")
+        raise ValueError(f"{spec.name}: 세션 {session}이(가) 아직 끝나지 않았습니다")
     universe = normalize_universe(universe)
     reconcile(state, broker, spec.name)
 

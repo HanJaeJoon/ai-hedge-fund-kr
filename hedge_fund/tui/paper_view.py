@@ -35,7 +35,7 @@ from hedge_fund.tui.palette import BRIGHT, CYAN, GREEN, MUTED, RED, TEXT
 from hedge_fund.tui.report import session_row, weights_line
 from hedge_fund.tui.shared import cadence_identity, render_area_chart, session_label
 
-_PERIOD_WORD = {"daily": "day", "weekly": "week", "monthly": "month"}
+_PERIOD_WORD = {"daily": "날", "weekly": "주", "monthly": "달"}
 
 
 # The reason the app's `h` writes to the kill switch. The ledger wants one for
@@ -116,14 +116,14 @@ class PaperSnapshot:
         """Glyph, word, tone, the same vocabulary at every cadence: a runner
         up is running; otherwise new until the first session, then idle."""
         if self.error:
-            return "✗", "ledger error", RED
+            return "✗", "원장 오류", RED
         if self.halted:
-            return "■", "halted", RED
+            return "■", "거래 중지됨", RED
         if self.running:
-            return "●", "running", GREEN
+            return "●", "실행 중", GREEN
         if self.last_session is None:
-            return "●", "new", CYAN
-        return "○", "idle", MUTED
+            return "●", "신규", CYAN
+        return "○", "대기", MUTED
 
     def status(self) -> Text:
         """One line: the same facts as `aihf paper status`."""
@@ -133,11 +133,11 @@ class PaperSnapshot:
         if self.error:
             line.append(self.error, style=RED)
         elif self.halted:
-            line.append(self.halted, style=RED)
+            line.append("앱에서 거래 중지함" if self.halted == APP_HALT else self.halted, style=RED)
         elif self.last_session is None:
-            line.append("no sessions yet", style=MUTED)
+            line.append("아직 세션 없음", style=MUTED)
         else:
-            line.append(f"last session {self.last_session}", style=TEXT)
+            line.append(f"마지막 세션 {self.last_session}", style=TEXT)
         return line
 
     def badge(self) -> Text:
@@ -155,7 +155,7 @@ def paper_slot(index: int, snap: PaperSnapshot) -> Text:
     card.append(snap.deployed.name, style=TEXT)
     glyph, word, tone = snap._state_word()
     if snap.error:
-        card.append("   ✗ ledger", style=RED)
+        card.append("   ✗ 원장", style=RED)
         return card
     if snap.records and not snap.halted:
         ret = snap.nav / snap.spec.capital - 1
@@ -173,31 +173,31 @@ def next_run_rows(snap: PaperSnapshot, now: datetime | None = None) -> list[tupl
     it; then what happens to the pending decision, then whether a new one is
     made. The exact session is resolved when the user asks to run."""
     if snap.halted:
-        rows: list[tuple[str, Text | str]] = [("Halted", Text("r to resume before it can run", style=RED))]
+        rows: list[tuple[str, Text | str]] = [("거래 중지됨", Text("실행하려면 먼저 r로 재개", style=RED))]
         if snap.halted not in (APP_HALT, "halted"):  # a reason given from the CLI
             rows.append(("", Text(snap.halted, style=MUTED)))
         return rows
     moment = now or datetime.now(NEW_YORK)
-    rows: list[tuple[str, Text | str]] = [("Next bar" if snap.intraday else "Next close", Text.assemble(
-        (following_session(snap.spec, snap.last_session, moment).removesuffix(" close"), BRIGHT),
-        ("   ● running · space to stop" if snap.running else "   ○ idle · space to start a runner",
+    rows: list[tuple[str, Text | str]] = [("다음 봉" if snap.intraday else "다음 종가", Text.assemble(
+        (following_session(snap.spec, snap.last_session, moment).removesuffix(" 종가"), BRIGHT),
+        ("   ● 실행 중 · space로 중지" if snap.running else "   ○ 대기 · space로 러너 시작",
          GREEN if snap.running else MUTED)))]
     if snap.pending is not None:
-        rows.append(("First", Text.assemble(
-            "execute the ", (session_label(snap.pending.as_of), BRIGHT), " decision")))
+        rows.append(("먼저", Text.assemble(
+            (session_label(snap.pending.as_of), BRIGHT), " 결정 실행")))
         rows.append(("", weights_line(snap.pending)))
     elif snap.last_session is None:
-        rows.append(("First", "mark the book at the first bar's prints" if snap.intraday
-                     else "mark the book at the latest completed close"))
+        rows.append(("먼저", "첫 봉의 체결가로 보유 현황 평가" if snap.intraday
+                     else "가장 최근 완료된 종가로 보유 현황 평가"))
     else:
-        rows.append(("First", "mark the book"))
+        rows.append(("먼저", "보유 현황 평가"))
     cadence = snap.spec.rebalance
     if snap.last_session is None:
-        rows.append(("Then", "make the first decision"))
+        rows.append(("그다음", "첫 결정"))
     elif cadence in ("daily", "minute"):
-        rows.append(("Then", "make a new decision"))
+        rows.append(("그다음", "새 결정"))
     else:
-        rows.append(("Then", f"make a new decision if it opens a new {_PERIOD_WORD[cadence]}"))
+        rows.append(("그다음", f"새 {_PERIOD_WORD[cadence]}의 첫 세션이면 새 결정"))
     return rows
 
 
@@ -217,10 +217,10 @@ def today_rows(snap: PaperSnapshot, now: datetime | None = None) -> list[tuple[s
     change = bars[-1].nav / opened_at - 1 if opened_at else 0.0
     fills = sum(len(r.executed.fills) for r in bars if r.executed is not None)
     return [
-        ("Bars", Text.assemble((f"{len(bars)} / {total}", TEXT),
-                               (f"   last {bar_time(bars[-1].session):%H:%M:%S} ET", MUTED))),
-        ("Since open", Text.assemble((f"{change:+.2%}", GREEN if change >= 0 else RED),
-                                     (f"   {fills} {'fill' if fills == 1 else 'fills'}", MUTED))),
+        ("봉", Text.assemble((f"{len(bars)} / {total}", TEXT),
+                             (f"   마지막 {bar_time(bars[-1].session):%H:%M:%S} ET", MUTED))),
+        ("시가 대비", Text.assemble((f"{change:+.2%}", GREEN if change >= 0 else RED),
+                                (f"   체결 {fills}건", MUTED))),
     ]
 
 
@@ -242,11 +242,11 @@ def live_rows(
     today = today or datetime.now(NEW_YORK).date().isoformat()
     stale = newest.date().isoformat() < today
     tone = MUTED if stale else GREEN if change >= 0 else RED
-    when = newest.strftime("%b %-d %H:%M") if stale else newest.strftime("%H:%M")
-    return [("Live", Text.assemble(
+    when = f"{newest.month}월 {newest.day}일 {newest:%H:%M}" if stale else newest.strftime("%H:%M")
+    return [("실시간", Text.assemble(
         (f"${value:,.0f}", MUTED if stale else TEXT),
         (f"   {change:+.2%}", tone),
-        (f"   as of {when} ET", MUTED)))]
+        (f"   {when} ET 기준", MUTED)))]
 
 
 def paper_detail(
@@ -269,33 +269,32 @@ def paper_detail(
     if snap.error:
         parts.append(Text(snap.error, style=RED))
         return Group(*parts)
-    parts += [_section("NEXT RUN"), _facts(next_run_rows(snap, now))]
+    parts += [_section("다음 실행"), _facts(next_run_rows(snap, now))]
     today = today_rows(snap, now) if snap.intraday else []
     if today:
-        parts += [Text(""), _section("TODAY"), _facts(today)]
+        parts += [Text(""), _section("오늘"), _facts(today)]
     if snap.records:
         m = snap.metrics()
         _, nav, bench = snap.curves()
         n = len(snap.records)
         ret, bench_ret = m.total_return_pct, m.benchmark_return_pct
-        parts += [Text(""), _section("PERFORMANCE"), _facts([
-            ("Value", f"${snap.nav:,.0f}"),
-            ("Return", Text.assemble((f"{ret:+.1%}", GREEN if ret >= 0 else RED),
+        parts += [Text(""), _section("성과"), _facts([
+            ("평가액", f"${snap.nav:,.0f}"),
+            ("수익률", Text.assemble((f"{ret:+.1%}", GREEN if ret >= 0 else RED),
                                      (f"   {spec.benchmark} {bench_ret:+.1%}", MUTED))),
-            ("Since", Text(f"{snap.records[0].session} · {n} {'session' if n == 1 else 'sessions'}"
-                           f" · {m.n_orders} {'order' if m.n_orders == 1 else 'orders'}", style=MUTED)),
+            ("시작", Text(f"{snap.records[0].session} · 세션 {n}개 · 주문 {m.n_orders}건", style=MUTED)),
             *(live_rows(snap, quotes) if quotes else []),
         ])]
         if n >= 2:  # one point is a flat block, not a curve
             parts.append(Text(""))
             parts.extend(render_area_chart(nav, bench, spec.capital, width))
-        parts += [Text(""), _section("SESSIONS")]
+        parts += [Text(""), _section("세션")]
         navs = [spec.capital, *(r.nav for r in snap.records)]
         shown = min(n, 3)
         for i in range(n - 1, n - 1 - shown, -1):
             parts.append(Text(" ").append_text(session_row(snap.records[i], navs[i])))
         if n > shown:
-            parts.append(Text(f"   … {n - shown} more · s for all", style=MUTED))
+            parts.append(Text(f"   ... 외 {n - shown}개 · s로 전체 보기", style=MUTED))
     return Group(*parts)
 
 
@@ -331,48 +330,45 @@ def run_plan(name: str, state: FundState, due: str | None, spec: FundSpec,
     body = Text()
     if due is None:
         if state.last_session is None:
-            what = "bar" if spec.is_intraday else f"completed {spec.benchmark} session"
-            body.append(f"No {what} to run yet.  Next: ", style=TEXT)
+            what = "봉이" if spec.is_intraday else f"완료된 {spec.benchmark} 세션이"
+            body.append(f"아직 실행할 {what} 없습니다.  다음: ", style=TEXT)
             body.append(following_session(spec, None, moment), style=f"bold {BRIGHT}")
             body.append(".", style=TEXT)
             return body
-        body.append("Up to date through ", style=TEXT)
         body.append(session_label(state.last_session), style=f"bold {BRIGHT}")
-        body.append(".  Next session: ", style=TEXT)
+        body.append("까지 최신 상태입니다.  다음 세션: ", style=TEXT)
         body.append(following_session(spec, state.last_session, moment), style=f"bold {BRIGHT}")
         body.append(".\n\n", style=TEXT)
-        body.append("Run ", style=TEXT)
         body.append(session_label(state.last_session), style=f"bold {BRIGHT}")
-        body.append(" again?  ", style=TEXT)
-        at = "prints it saw" if spec.is_intraday else "same close"
-        body.append(f"The analysts look again and the book is sized again at the {at}. "
-                    "The recorded session is replaced; the old record is kept aside, off the chain.",
+        body.append(" 세션을 다시 실행할까요?  ", style=TEXT)
+        at = "그때 본 체결가" if spec.is_intraday else "같은 종가"
+        body.append(f"애널리스트가 다시 분석하고 {at}로 포지션 규모를 다시 정합니다. "
+                    "기록된 세션은 교체되고, 이전 기록은 체인 밖에 따로 보관됩니다.",
                     style=MUTED)
         return body
     at = _at_phrase(due, moment)
     if state.pending is not None:
-        body.append("Execute the ", style=TEXT)
         body.append(session_label(state.pending.as_of), style=f"bold {BRIGHT}")
-        body.append(" decision at the ", style=TEXT)
+        body.append(" 결정 실행: ", style=TEXT)
         body.append_text(at)
         body.append("\n  ", style=TEXT)
         body.append_text(weights_line(state.pending))
-        body.append("\n  views refreshed before sizing\n", style=MUTED)
-        then = "Then "
+        body.append("\n  비중 산정 전 분석 갱신\n", style=MUTED)
+        then = "그다음 "
     else:
-        body.append("Mark the book at the ", style=TEXT)
+        body.append("보유 현황 평가: ", style=TEXT)
         body.append_text(at)
-        body.append(".  No trades.\n", style=TEXT)
+        body.append(".  거래 없음.\n", style=TEXT)
         then = ""
     if is_rebalance_session(due, state.last_session, spec.rebalance):
-        why = ("the fund's first decision" if state.last_session is None
-               else "every bar" if spec.rebalance == "minute"
-               else "every session" if spec.rebalance == "daily"
-               else f"first session of the {_PERIOD_WORD[spec.rebalance]}")
-        body.append(f"{then}make a new decision", style=TEXT)
+        why = ("펀드의 첫 결정" if state.last_session is None
+               else "매 봉" if spec.rebalance == "minute"
+               else "매 세션" if spec.rebalance == "daily"
+               else f"{_PERIOD_WORD[spec.rebalance]}의 첫 세션")
+        body.append(f"{then}새 결정", style=TEXT)
         body.append(f"  ({why})", style=MUTED)
     elif then:
-        body.append("Then mark the book.", style=TEXT)
+        body.append("그다음 보유 현황 평가.", style=TEXT)
     return body
 
 
@@ -380,12 +376,12 @@ def _at_phrase(due: str, now: datetime) -> Text:
     """Where the session's prices come from: `<date> close`, or `<bar> ET
     print` with how late the print is taken when the bar is behind now."""
     if not is_intraday(due):
-        return Text.assemble((due, f"bold {BRIGHT}"), (" close", TEXT))
-    phrase = Text.assemble((session_label(due), f"bold {BRIGHT}"), (" print, taken now", TEXT))
+        return Text.assemble((due, f"bold {BRIGHT}"), (" 종가", TEXT))
+    phrase = Text.assemble((session_label(due), f"bold {BRIGHT}"), (" 체결가, 지금 조회", TEXT))
     late = (now - bar_time(due)).total_seconds()
     if late >= 60:
         minutes = int(late // 60)
-        phrase.append(f" ({minutes} {'minute' if minutes == 1 else 'minutes'} after the bar)", style=MUTED)
+        phrase.append(f" (봉 이후 {minutes}분)", style=MUTED)
     return phrase
 
 
@@ -399,7 +395,7 @@ def day_heading(day: str, records: list[SessionRecord], navs: list[float]) -> Te
     return Text.assemble(
         (f" {day}", f"bold {BRIGHT}"),
         (f"  {change:+.2%}", GREEN if change >= 0 else RED),
-        (f"  {n} {'bar' if n == 1 else 'bars'}", MUTED),
+        (f"  봉 {n}개", MUTED),
     )
 
 

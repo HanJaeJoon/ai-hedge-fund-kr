@@ -24,16 +24,16 @@ class StatTiles(Horizontal):
         def tile(label: str, value: str, style: str) -> Text:
             return Text.assemble((f"{label}\n", MUTED), (value, f"bold {style}"), justify="center")
 
-        self.query_one("#stat-nav", Static).update(tile("PORTFOLIO", f"${nav:,.0f}", BRIGHT))
+        self.query_one("#stat-nav", Static).update(tile("포트폴리오", f"${nav:,.0f}", BRIGHT))
         self.query_one("#stat-return", Static).update(
-            tile("RETURN", f"{fund_return:+.2%}", GREEN if fund_return >= 0 else RED))
+            tile("수익률", f"{fund_return:+.2%}", GREEN if fund_return >= 0 else RED))
         self.query_one("#stat-bench", Static).update(
             tile(benchmark, f"{benchmark_return:+.2%}", GREEN if benchmark_return >= 0 else RED))
         self.query_one("#stat-excess", Static).update(
-            tile("EXCESS", f"{excess:+.2%}", GREEN if excess >= 0 else RED))
+            tile("초과 수익률", f"{excess:+.2%}", GREEN if excess >= 0 else RED))
         self.query_one("#stat-sharpe", Static).update(
-            tile("SHARPE", f"{sharpe:.2f}", GREEN if sharpe > 1 else "yellow" if sharpe > 0 else RED))
-        self.query_one("#stat-dd", Static).update(tile("MAX DRAWDOWN", f"{max_dd:.2%}", RED))
+            tile("샤프 지수", f"{sharpe:.2f}", GREEN if sharpe > 1 else "yellow" if sharpe > 0 else RED))
+        self.query_one("#stat-dd", Static).update(tile("최대 낙폭", f"{max_dd:.2%}", RED))
 
 
 def first_selectable(nav: OptionList) -> int | None:

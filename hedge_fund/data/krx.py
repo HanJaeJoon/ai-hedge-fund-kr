@@ -68,7 +68,7 @@ class KRXClient:
     def __init__(self, api_key: str | None = None, timeout: float = 30.0) -> None:
         self._key = api_key or os.environ.get("DART_API_KEY", "")
         if not self._key:
-            raise KRXClientError("DART_API_KEY is not set")
+            raise KRXClientError("DART_API_KEY가 설정되지 않았습니다")
         self._timeout = timeout
         self._session = requests.Session()
         self._dir = CACHE_DIR / "dart"
@@ -92,7 +92,7 @@ class KRXClient:
     def get_prices(self, ticker: str, start_date: str, end_date: str,
                    interval: str = "day", interval_multiplier: int = 1) -> list[Price]:
         if interval != "day":
-            raise KRXClientError("KRX provider has daily bars only")
+            raise KRXClientError("KRX 데이터 제공자는 일봉만 지원합니다")
         return [p for p in self._all_prices(ticker) if start_date <= p.time[:10] <= end_date]
 
     def _all_prices(self, ticker: str) -> list[Price]:
@@ -153,7 +153,7 @@ class KRXClient:
         try:
             return self._corp[ticker]
         except KeyError:
-            raise KRXClientError(f"{ticker}: not a listed KRX stock code in DART") from None
+            raise KRXClientError(f"{ticker}: DART에 등록된 KRX 상장 종목 코드가 아닙니다") from None
 
     def _report(self, corp: str, year: int, code: str) -> dict | None:
         """Flows (cumulative YTD), balances, filing date for one report; None if not filed."""

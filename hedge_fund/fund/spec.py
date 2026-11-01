@@ -41,9 +41,9 @@ def _clock_seconds(hhmm: str) -> int:
         hours, minutes = hhmm.split(":")
         h, m = int(hours), int(minutes)
     except (AttributeError, ValueError):
-        raise ValueError(f"{hhmm!r} is not a time of day (HH:MM)") from None
+        raise ValueError(f"{hhmm!r}은(는) 올바른 시각(HH:MM)이 아닙니다") from None
     if not (0 <= h < 24 and 0 <= m < 60 and len(hours) == 2 and len(minutes) == 2):
-        raise ValueError(f"{hhmm!r} is not a time of day (HH:MM)")
+        raise ValueError(f"{hhmm!r}은(는) 올바른 시각(HH:MM)이 아닙니다")
     return h * 3600 + m * 60
 
 
@@ -61,13 +61,13 @@ class TradingWindow(BaseModel):
     def _within_extended_hours(cls, value: str) -> str:
         seconds = _clock_seconds(value)
         if not _clock_seconds(EARLIEST_WINDOW) <= seconds <= _clock_seconds(LATEST_WINDOW):
-            raise ValueError(f"{value} is outside US extended hours ({EARLIEST_WINDOW}–{LATEST_WINDOW} ET)")
+            raise ValueError(f"{value}은(는) 미국 확장 거래 시간({EARLIEST_WINDOW}–{LATEST_WINDOW} ET)을 벗어납니다")
         return value
 
     @model_validator(mode="after")
     def _opens_before_it_closes(self) -> TradingWindow:
         if self.start_seconds >= self.end_seconds:
-            raise ValueError(f"window must open before it closes ({self.start}–{self.end} ET)")
+            raise ValueError(f"거래 시간은 시작이 종료보다 빨라야 합니다({self.start}–{self.end} ET)")
         return self
 
     @property
@@ -184,7 +184,7 @@ class FundSpec(BaseModel):
         names = [s.name for s in strategies]
         duplicates = {n for n in names if names.count(n) > 1}
         if duplicates:
-            raise ValueError(f"duplicate strategy names: {sorted(duplicates)}")
+            raise ValueError(f"전략 이름이 중복됩니다: {sorted(duplicates)}")
         return strategies
 
     @model_validator(mode="after")
@@ -192,15 +192,15 @@ class FundSpec(BaseModel):
         if self.rebalance != "minute":
             stray = sorted({"interval", "window"} & self.model_fields_set)
             if stray:
-                raise ValueError(f"{', '.join(stray)}: only a minute fund has these; this one is {self.rebalance}")
+                raise ValueError(f"{', '.join(stray)}: 분 단위 펀드에만 있는 항목입니다. 이 펀드는 {cadence_name(self.rebalance)} 리밸런싱입니다")
             return self
         if self.interval_seconds < MIN_INTERVAL_SECONDS:
             raise ValueError(
-                f"interval: floor is {MIN_INTERVAL_SECONDS} second — sessions are stamped to the second"
+                f"interval: 최소 {MIN_INTERVAL_SECONDS}초입니다. 세션은 초 단위로 기록됩니다"
             )
         if self.interval_seconds > self.window.end_seconds - self.window.start_seconds:
             raise ValueError(
-                f"interval: {format_interval(self.interval_seconds)} is longer than the {self.window.label} window"
+                f"interval: {format_interval(self.interval_seconds)}은(는) 거래 시간 {self.window.label}보다 깁니다"
             )
         return self
 
@@ -230,26 +230,34 @@ class FundSpec(BaseModel):
 
     @property
     def cadence_label(self) -> str:
-        """How the cadence reads: `daily`, or `every 30s` / `every 5m` / `every 1h30m`."""
+        """How the cadence reads: `매일`, or `30초마다` / `5분마다` / `1시간 30분마다`."""
         if not self.is_intraday:
-            return self.rebalance
-        return f"every {format_interval(self.interval_seconds)}"
+            return cadence_name(self.rebalance)
+        return f"{format_interval(self.interval_seconds)}마다"
 
 
 def format_interval(seconds: int) -> str:
-    """`30s`, `5m`, `1h`, `1h30m`, `2m30s` — the shortest honest spelling."""
+    """`30초`, `5분`, `1시간`, `1시간 30분`, `2분 30초` — the shortest honest spelling."""
     hours, rest = divmod(seconds, 3600)
     minutes, secs = divmod(rest, 60)
     if seconds < 60:
-        return f"{secs}s"
+        return f"{secs}초"
     parts = []
     if hours:
-        parts.append(f"{hours}h")
+        parts.append(f"{hours}시간")
     if minutes:
-        parts.append(f"{minutes}m")
+        parts.append(f"{minutes}분")
     if secs:
-        parts.append(f"{secs}s")
-    return "".join(parts)
+        parts.append(f"{secs}초")
+    return " ".join(parts)
+
+
+CADENCE_NAMES: dict[str, str] = {"minute": "분 단위", "daily": "매일", "weekly": "매주", "monthly": "매월"}
+
+
+def cadence_name(cadence: str) -> str:
+    """The display name of a rebalance cadence value (`weekly` -> `매주`)."""
+    return CADENCE_NAMES.get(cadence, cadence)
 
 
 def normalize_universe(tickers: list[str]) -> list[str]:
@@ -263,7 +271,7 @@ def normalize_universe(tickers: list[str]) -> list[str]:
         if upper and upper not in universe:
             universe.append(upper)
     if not universe:
-        raise ValueError("universe is empty — a run needs at least one ticker")
+        raise ValueError("유니버스가 비어 있습니다. 실행하려면 종목이 하나 이상 필요합니다")
     return universe
 
 
@@ -271,7 +279,7 @@ def load_spec(path: str | Path) -> FundSpec:
     """Load a YAML mandate, raising ValueError with its path and error details."""
     data = _read_yaml(path)
     if "schema_version" not in data:
-        raise ValueError(f"{path}: schema_version: This fund uses an older format. " "Recreate it or update its configuration.")
+        raise ValueError(f"{path}: schema_version: 이전 형식의 펀드입니다. 다시 만들거나 설정을 업데이트해야 합니다.")
     try:
         return FundSpec.model_validate(data)
     except ValidationError as exc:
@@ -295,9 +303,9 @@ def _read_yaml(path: str | Path) -> dict[str, Any]:
     try:
         data = yaml.safe_load(Path(path).read_text())
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
-        raise ValueError(f"{path}: cannot read configuration: {exc}") from exc
+        raise ValueError(f"{path}: 설정을 읽을 수 없습니다: {exc}") from exc
     if not isinstance(data, dict):
-        raise ValueError(f"{path}: configuration must be a YAML mapping")
+        raise ValueError(f"{path}: 설정은 YAML 매핑이어야 합니다")
     return data
 
 
@@ -339,7 +347,7 @@ class Fund:
             staff = []
             for m in strategy.models:
                 if m.name not in ALPHA_MODEL_REGISTRY:
-                    raise ValueError(f"unknown model {m.name!r} in strategy " f"{strategy.name!r}; available: {sorted(ALPHA_MODEL_REGISTRY)}")
+                    raise ValueError(f"전략 {strategy.name!r}에 알 수 없는 모델 {m.name!r}이(가) 있습니다. 사용 가능: {sorted(ALPHA_MODEL_REGISTRY)}")
                 cls = ALPHA_MODEL_REGISTRY[m.name]
                 params = {**m.params, "blind": True} if blind and issubclass(cls, LLMAgent) else m.params
                 staff.append(cls(**params))

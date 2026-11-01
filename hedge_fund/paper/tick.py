@@ -70,12 +70,12 @@ class RecordedClock:
 
     def marks(self, tickers: list[str], session: str) -> Marked:
         if session != self._record.session:
-            raise ValueError(f"{session}: only {self._record.session} can be run again at recorded prices")
+            raise ValueError(f"{session}: 기록된 가격으로 다시 실행할 수 있는 세션은 {self._record.session}뿐입니다")
         missing = sorted(set(tickers) - set(self._prices))
         if missing:
             raise ValueError(
-                f"{', '.join(missing)}: no recorded print at {session}; a bar can only be run "
-                "again at the prices it saw"
+                f"{', '.join(missing)}: {session}에 기록된 체결가가 없습니다. 봉은 당시 본 "
+                "가격으로만 다시 실행할 수 있습니다"
             )
         return Marked(
             prices={t: self._prices[t] for t in sorted(set(tickers))},
@@ -116,12 +116,13 @@ def following_session(spec: FundSpec, after: str | None, now: datetime) -> str:
     if spec.is_intraday:
         upcoming = next_bar(now, spec.interval_seconds, spec.window)
         same_day = upcoming.date() == now.astimezone(NEW_YORK).date()
-        return upcoming.strftime("%H:%M:%S ET" if same_day else "%a %H:%M:%S ET")
+        clock = upcoming.strftime("%H:%M:%S ET")
+        return clock if same_day else f"{'월화수목금토일'[upcoming.weekday()]}요일 {clock}"
     day = _date.fromisoformat(session_date(after)) if after else now.astimezone(NEW_YORK).date()
     day += timedelta(days=1)
     while day.weekday() >= 5:
         day += timedelta(days=1)
-    return f"{day.isoformat()} close"
+    return f"{day.isoformat()} 종가"
 
 
 def previous_session(session: str, spec: FundSpec) -> str:
@@ -173,17 +174,17 @@ def tick(
         return ledger.read(session)
     state = ledger.replay(spec.capital)
     if state.halted is not None:
-        raise FundHalted(f"{deployed.name} is halted: {state.halted}")
+        raise FundHalted(f"{deployed.name}은(는) 거래 중지됨: {state.halted}")
 
     due = next_session(data_client, spec, state.last_session, now=now)
     now = now or (lambda: datetime.now(NEW_YORK))
     if due is None:
-        after = f"after {state.last_session}" if state.last_session else "yet"
-        what = "bar" if spec.is_intraday else f"completed {spec.benchmark} session"
-        raise NothingDue(f"{deployed.name}: no {what} {after}; next {following_session(spec, state.last_session, now())}")
+        after = f"{state.last_session} 이후" if state.last_session else "아직"
+        what = "봉" if spec.is_intraday else f"완료된 {spec.benchmark} 세션"
+        raise NothingDue(f"{deployed.name}: {after} {what}이 없습니다. 다음: {following_session(spec, state.last_session, now())}")
     if session is not None and session != due:
         raise ValueError(
-            f"{deployed.name}: session {session} is not the next unrecorded session ({due})"
+            f"{deployed.name}: 세션 {session}은(는) 다음 미기록 세션({due})이 아닙니다"
         )
     clock = None
     if spec.is_intraday:
@@ -194,8 +195,8 @@ def tick(
         benchmark = clock.observe([spec.benchmark], due)[spec.benchmark]
         if print_day(benchmark.time) < session_date(due):
             raise NothingDue(
-                f"{deployed.name}: {spec.benchmark} has not printed today (market closed); "
-                f"next {following_session(spec, state.last_session, now())}"
+                f"{deployed.name}: 오늘 {spec.benchmark} 체결가가 없습니다(휴장). "
+                f"다음: {following_session(spec, state.last_session, now())}"
             )
     return _run(directory, deployed, ledger, state, due, data_client, build_fund, clock=clock)
 
@@ -226,9 +227,9 @@ def redo(
     ledger = Ledger(directory)
     state = ledger.replay(deployed.spec.capital)  # verifies the whole chain first
     if state.halted is not None:
-        raise FundHalted(f"{deployed.name} is halted: {state.halted}")
+        raise FundHalted(f"{deployed.name}은(는) 거래 중지됨: {state.halted}")
     if state.last_session is None:
-        raise NothingDue(f"{deployed.name}: no session recorded yet, nothing to run again")
+        raise NothingDue(f"{deployed.name}: 아직 기록된 세션이 없어 다시 실행할 것이 없습니다")
 
     before = ledger.replay(deployed.spec.capital, before=state.last_session)
     superseded = ledger.rewind()

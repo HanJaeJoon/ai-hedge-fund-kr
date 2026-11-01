@@ -13,6 +13,7 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _version
 from pathlib import Path
 
+from rich.cells import cell_len
 from rich.text import Text
 
 from hedge_fund.data.bars import is_intraday
@@ -39,7 +40,7 @@ DISPLAY_NAMES = {
     "lynch": "Peter Lynch",
     "wood": "Cathie Wood",
     "druckenmiller": "Stanley Druckenmiller",
-    "pead": "post-earnings drift",
+    "pead": "실적 발표 후 드리프트",
 }
 
 SHORT_NAMES = {
@@ -52,14 +53,14 @@ SHORT_NAMES = {
     "pead": "PEAD",
 }
 
-MODE_LABELS: dict[PortfolioMode, str] = {"long_only": "Long-only", "long_short": "Long/short", "dollar_neutral": "Dollar-neutral"}
+MODE_LABELS: dict[PortfolioMode, str] = {"long_only": "롱온리", "long_short": "롱숏", "dollar_neutral": "달러 중립"}
 
 
 def horizon_label(days: int) -> str:
-    """`60d`, `1y`, `2y`: a horizon in trading days, as a desk says it."""
+    """`60일`, `1년`, `2년`: a horizon in trading days, as a desk says it."""
     if days % 252 == 0:
-        return f"{days // 252}y"
-    return f"{days}d"
+        return f"{days // 252}년"
+    return f"{days}일"
 
 
 # The LLM the investor agents reason with. Picked once, upfront; make_llm()
@@ -83,13 +84,13 @@ def strategy_description(strategy: StrategySpec) -> str:
     short_names = [SHORT_NAMES.get(m.name, m.name) for m in strategy.models
                    if get_investment_approach(m.name) == "long_short"]
     if strategy.blend.mode == "long_only":
-        return f"{label}: buy stocks or hold cash; no shorts."
-    prefix = ("balance long and short dollar exposure (not market risk). "
-              if strategy.blend.mode == "dollar_neutral" else "buy and short stocks. ")
-    support = (f"Short ideas must be supported by {', '.join(short_names)}."
-               if short_names else "No selected analyst can support short ideas.")
+        return f"{label}: 주식을 매수하거나 현금으로 보유하며, 공매도는 하지 않습니다."
+    prefix = ("롱과 숏의 금액 노출을 같게 맞춥니다(시장 위험 기준이 아님). "
+              if strategy.blend.mode == "dollar_neutral" else "주식을 매수하고 공매도합니다. ")
+    support = (f"숏 아이디어는 {', '.join(short_names)}의 지지가 있어야 합니다."
+               if short_names else "숏 아이디어를 지지할 수 있는 애널리스트가 선택되지 않았습니다.")
     if len(short_names) < len(strategy.models):
-        support += " Long-only analysts contribute ownership views."
+        support += " 롱온리 애널리스트는 보유 의견만 냅니다."
     return f"{label}: {prefix}{support}"
 
 
@@ -98,7 +99,7 @@ def valid_date(text: str):
         _date.fromisoformat(text.strip())
         return True
     except ValueError:
-        return "Use YYYY-MM-DD."
+        return "YYYY-MM-DD 형식으로 입력하세요."
 
 
 def fund_label(spec: FundSpec) -> str:
@@ -106,7 +107,7 @@ def fund_label(spec: FundSpec) -> str:
     staff = ", ".join(f"{s.title} ({MODE_LABELS[s.blend.mode]})" for s in spec.strategies[:3])
     if len(spec.strategies) > 3:
         staff += ", …"
-    return f"{spec.name:<18} {staff} · {spec.cadence_label}"
+    return f"{spec.name}{' ' * max(0, 18 - cell_len(spec.name))} {staff} · {spec.cadence_label}"
 
 
 def agent_names(spec: FundSpec) -> list[str]:
@@ -286,9 +287,9 @@ def render_area_chart(
 
 
 def cadence_identity(spec: FundSpec) -> str:
-    """How a fund's cadence reads on one line: `weekly`, or `every 30s · 09:30–16:00 ET`."""
+    """How a fund's cadence reads on one line: `매주`, or `30초마다 · 09:30–16:00 ET`."""
     if not spec.is_intraday:
-        return spec.rebalance
+        return spec.cadence_label
     return f"{spec.cadence_label} · {spec.window.label}"
 
 

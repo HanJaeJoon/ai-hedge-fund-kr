@@ -23,10 +23,10 @@ def test_analyst_table_shows_rates_with_their_counts():
                      ic_t_stat=None, n_dates=0),
     ])
     text = render(analyst_table(card))
-    assert "each view judged at its own horizon" in text
-    assert "Buffett" in text and "1y" in text and "120" in text
-    assert "56% of 32" in text and "1.80×" in text and "+0.042" in text
-    assert "PEAD" in text and "60d" in text and "36" in text
+    assert "의견마다 스스로 정한 보유 기간으로 채점" in text
+    assert "Buffett" in text and "1년" in text and "120" in text
+    assert "56% / 32" in text and "1.80×" in text and "+0.042" in text
+    assert "PEAD" in text and "60일" in text and "36" in text
     assert text.count("–") >= 4  # every missing PEAD number renders as a dash
 
 
@@ -36,11 +36,11 @@ def test_strategy_table_reports_the_unattributed_gap():
                       share_of_pnl=1.2, max_drawdown_pct=0.013),
     ], fund_pnl=2040.0, trading_cost=300.0)
     text = render(strategy_table(card))
-    assert "fundamental-ls" in text and "+2,450" in text and "+2.45%" in text and "62% of 8" in text
-    assert "fund P&L +2,040" in text and "unattributed -410" in text and "trading costs -300" in text
+    assert "fundamental-ls" in text and "+2,450" in text and "+2.45%" in text and "62% / 8" in text
+    assert "펀드 손익 +2,040" in text and "미귀속 -410" in text and "거래 비용 -300" in text
 
 
 def test_empty_scorecard_says_why():
     card = _card()
-    assert "nothing to grade yet" in render(analyst_table(card))
-    assert "nothing to attribute yet" in render(strategy_table(card))
+    assert "아직 채점할 의견이 없습니다" in render(analyst_table(card))
+    assert "아직 귀속할 손익이 없습니다" in render(strategy_table(card))

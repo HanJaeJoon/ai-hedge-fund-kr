@@ -167,7 +167,7 @@ def test_out_of_order_and_repeated_sessions_are_refused():
     _, state = _step(fund, WEEKDAYS[:2])
     broker = Mock()  # the guard fires before reconciliation ever looks at the broker
     for session in (WEEKDAYS[1], WEEKDAYS[0]):
-        with pytest.raises(ValueError, match="not after the last recorded session"):
+        with pytest.raises(ValueError, match="마지막으로 기록된 세션"):
             advance(fund, state, session, broker, FakeDataClient(SERIES), ["AAPL"])
     assert broker.method_calls == []
 

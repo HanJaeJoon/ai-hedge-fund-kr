@@ -172,7 +172,7 @@ def test_advance_on_bars_decides_at_one_bar_and_fills_at_the_next_with_prints():
     assert first.decision.final_weights == {"AAPL": 1.0}
     assert first.snapshot_times == {"SPY": "2024-06-04T17:00:00Z"}  # nothing held yet
     state = next_state(state, first)
-    with pytest.raises(ValueError, match="not complete yet"):
+    with pytest.raises(ValueError, match="아직 끝나지 않았습니다"):
         advance(fund, state, "2024-06-04T13:05:00", broker, tape, ["AAPL"], clock)
 
     tape.now = _at(13, 5)

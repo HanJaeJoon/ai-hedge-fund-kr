@@ -54,7 +54,7 @@ class ReplaySchedule(BaseModel):
 def build_schedule(data: DataClient, benchmark: str, start: str, end: str, cadence: str) -> ReplaySchedule:
     closes = session_closes(data, benchmark, start, end)
     if not closes:
-        raise ValueError(f"no {benchmark} bars in [{start}, {end}] — cannot build the trading grid")
+        raise ValueError(f"[{start}, {end}] 구간에 {benchmark} 봉이 없어 거래일 그리드를 만들 수 없습니다")
     days = list(closes)
     following = dict(zip(days, days[1:]))
     return ReplaySchedule(closes=closes, execution_dates={
@@ -128,8 +128,8 @@ def backtest_fund(
     closes = session_closes(data_client, spec.benchmark, start, end)
     if not closes:
         raise ValueError(
-            f"{spec.name}: no {spec.benchmark} bars in [{start}, {end}] — "
-            "cannot build the trading grid"
+            f"{spec.name}: [{start}, {end}] 구간에 {spec.benchmark} 봉이 없어 "
+            "거래일 그리드를 만들 수 없습니다"
         )
     days = list(closes)
     dates, clock, cadence, periods_per_year = replay_grid(spec, days, data_client)
@@ -177,7 +177,7 @@ def replay_grid(spec: FundSpec, days: list[str], data: DataClient) -> tuple[list
     and the result's cadence says that is how it was replayed."""
     if not spec.is_intraday:
         return days, DailyClock(data), spec.rebalance, 252
-    return days, DailyClock(data), f"daily (mandate: {spec.cadence_label} · {spec.window.label})", 252
+    return days, DailyClock(data), f"daily (운용 지침: {spec.cadence_label} · {spec.window.label})", 252
 
 
 def rebalance_grid(days: list[str], cadence: str) -> list[str]:

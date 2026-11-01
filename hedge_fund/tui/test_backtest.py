@@ -44,10 +44,10 @@ def test_backtest_daily_board_matches_final_metrics_and_uses_fill_dates(size, tm
             before = {name: render(screen.query_one(f"#stat-{name}", Static).content)
                       for name in ("nav", "return", "sharpe", "dd")}
             assert screen._tape[0][0] == "2025-01-16"
-            assert "session 3/3" in render(screen.query_one("#cycle-line", Static).content)
+            assert "세션 3/3" in render(screen.query_one("#cycle-line", Static).content)
             screen._finish(result, tmp_path / "backtest.json")
             after = {name: render(screen.query_one(f"#stat-{name}", Static).content) for name in before}
             assert before == after
             phase = render(screen.query_one("#phase-line", Static).content)
-            assert "1 executed cycles" in phase and "pending" not in phase
+            assert "실행 사이클 1회" in phase and "pending" not in phase
     asyncio.run(scenario())

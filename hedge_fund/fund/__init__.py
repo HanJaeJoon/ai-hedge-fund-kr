@@ -3,6 +3,7 @@
 from hedge_fund.fund.spec import (
     BlendPolicy,
     Cadence,
+    cadence_name,
     custom_strategy,
     format_interval,
     Fund,
@@ -29,6 +30,7 @@ __all__ = [
     "SavedFund",
     "StrategySpec",
     "TradingWindow",
+    "cadence_name",
     "custom_strategy",
     "discover_funds",
     "format_interval",

@@ -58,6 +58,8 @@ from hedge_fund.tui.shared import (
 )
 from hedge_fund.tui.widgets import first_selectable, StatTiles
 
+_CADENCE_LABELS = {"minute": "분 단위", "daily": "매일", "weekly": "매주", "monthly": "매월"}
+
 
 class BacktestScreen(Screen):
     """Pick a mandate → pick a window → warm → replay with a live equity curve.
@@ -67,7 +69,7 @@ class BacktestScreen(Screen):
     afterward is the source of truth.
     """
 
-    BINDINGS = [Binding("escape", "back", "back")]
+    BINDINGS = [Binding("escape", "back", "뒤로")]
 
     def __init__(self, spec: FundSpec | None = None) -> None:
         super().__init__()
@@ -86,19 +88,19 @@ class BacktestScreen(Screen):
     def compose(self) -> ComposeResult:
         with ContentSwitcher(initial="bt-pick", id="bt-panes"):
             with Vertical(id="bt-pick", classes="pane"):
-                yield Label("Which mandate?", classes="q")
+                yield Label("운용 지침 선택", classes="q")
                 yield OptionList(id="fund-list")
                 yield Static("", id="no-funds", classes="hint")
             with Vertical(id="bt-dates", classes="pane"):
-                yield Label("Time-travel window", classes="q")
-                yield Static(Text("tickers to trade", style=MUTED))
+                yield Label("백테스트 기간", classes="q")
+                yield Static(Text("거래할 종목", style=MUTED))
                 yield Input(
-                    placeholder=f"e.g. {', '.join(UNIVERSE_PRESETS[:5])}",
+                    placeholder=f"예: {', '.join(UNIVERSE_PRESETS[:5])}",
                     id="bt-tickers",
                 )
-                yield Static(Text("from (YYYY-MM-DD)", style=MUTED))
+                yield Static(Text("시작일(YYYY-MM-DD)", style=MUTED))
                 yield Input(id="start-input")
-                yield Static(Text("to (YYYY-MM-DD)", style=MUTED))
+                yield Static(Text("종료일(YYYY-MM-DD)", style=MUTED))
                 yield Input(id="end-input")
             with VerticalScroll(id="bt-run", classes="pane"):
                 yield Static("", id="phase-line")
@@ -114,7 +116,7 @@ class BacktestScreen(Screen):
                 yield Static("", id="result-summary", classes="hidden")
                 yield Static("", id="scorecard", classes="hidden")
                 yield OptionList(
-                    Option("Back to home", id="bt-home"),
+                    Option("홈으로", id="bt-home"),
                     id="bt-done-menu",
                     classes="hidden",
                 )
@@ -129,13 +131,13 @@ class BacktestScreen(Screen):
         fund_list = self.query_one("#fund-list", OptionList)
         if not self._specs:
             self.query_one("#no-funds", Static).update(
-                Text("No mandates yet — build one first. Esc to go back.",
+                Text("아직 운용 지침이 없습니다. 먼저 만들어 주세요. Esc로 돌아갑니다.",
                      style=MUTED)
             )
             return
         for entry in entries:
             if entry.spec is None:
-                fund_list.add_option(Option(Text(f"{entry.path.name} — Unavailable\n{entry.error}"), disabled=True))
+                fund_list.add_option(Option(Text(f"{entry.path.name} - 사용할 수 없음\n{entry.error}"), disabled=True))
             else:
                 fund_list.add_option(Option(Text(fund_label(entry.spec))))
         fund_list.highlighted = first_selectable(fund_list)
@@ -201,13 +203,13 @@ class BacktestScreen(Screen):
                 self.notify(ok, severity="error")
                 return
         if end <= start:
-            self.notify(f"End must be after {start}.", severity="error")
+            self.notify(f"종료일은 {start} 이후여야 합니다.", severity="error")
             return
         try:
             universe = normalize_universe(
                 self.query_one("#bt-tickers", Input).value.replace(",", " ").split())
         except ValueError:
-            self.notify("Enter at least one ticker.", severity="error")
+            self.notify("종목을 하나 이상 입력하세요.", severity="error")
             self.query_one("#bt-tickers", Input).focus()
             return
         assert self._spec is not None
@@ -222,7 +224,7 @@ class BacktestScreen(Screen):
         self._phase = "run"
         self.query_one("#bt-panes", ContentSwitcher).current = "bt-run"
         self.query_one("#phase-line", Static).update(
-            Text("Building the trading grid…", style=MUTED)
+            Text("거래 일정 만드는 중...", style=MUTED)
         )
         self._run(self._spec, start, end, universe)
 
@@ -337,9 +339,9 @@ class BacktestScreen(Screen):
     def _begin_warm(self, spec: FundSpec, universe: list[str],
                     n_grid: int) -> None:
         self.query_one("#phase-line", Static).update(Text.assemble(
-            ("Loading market data", f"bold {BRIGHT}"),
-            (f"  ·  {len(universe)} stocks × {n_grid} "
-             f"{spec.rebalance} cycles", MUTED),
+            ("시장 데이터 불러오는 중", f"bold {BRIGHT}"),
+            (f"  ·  종목 {len(universe)}개 · "
+             f"{_CADENCE_LABELS.get(spec.rebalance, spec.rebalance)} 사이클 {n_grid}회", MUTED),
         ))
         bar = self.query_one("#warm-progress", ProgressBar)
         bar.update(total=len(universe) * n_grid, progress=0)
@@ -347,8 +349,8 @@ class BacktestScreen(Screen):
 
     def _begin_agents(self, spec: FundSpec) -> None:
         self.query_one("#phase-line", Static).update(Text.assemble(
-            ("Agents replaying history", f"bold {BRIGHT}"),
-            ("  ·  point-in-time: each date sees only what was filed by then",
+            ("에이전트가 과거를 재현하는 중", f"bold {BRIGHT}"),
+            ("  ·  시점 기준: 각 날짜에는 그때까지 공시된 정보만 보입니다",
              MUTED),
         ))
         self._roster_order = [
@@ -374,17 +376,17 @@ class BacktestScreen(Screen):
         self._n_cycles = n_cycles
         self._tape = []
         self.query_one("#phase-line", Static).update(Text.assemble(
-            ("Replaying the fund", f"bold {BRIGHT}"),
-            ("  ·  daily valuations and next-close execution",
+            ("펀드 재현 중", f"bold {BRIGHT}"),
+            ("  ·  매일 평가, 다음 종가에 체결",
              MUTED),
         ))
         box_widget = self.query_one("#curve-box", Vertical)
-        box_widget.border_title = "equity curve"
+        box_widget.border_title = "자산 곡선"
         box_widget.border_subtitle = (
-            f"[{GREEN}]██[/] fund   [{CYAN}]──[/] {spec.benchmark}"
+            f"[{GREEN}]██[/] 펀드   [{CYAN}]──[/] {spec.benchmark}"
         )
         tape_box = self.query_one("#tape-box", Vertical)
-        tape_box.border_title = "trades (newest first)"
+        tape_box.border_title = "거래(최신순)"
         self.query_one("#stats", StatTiles).remove_class("hidden")
         box_widget.remove_class("hidden")
         tape_box.remove_class("hidden")
@@ -410,7 +412,7 @@ class BacktestScreen(Screen):
         curve_widget.update(Group(*render_area_chart(
             self._nav, benchmark_curve, capital, min(width, 100))))
         self.query_one("#cycle-line", Static).update(Text(
-            f"session {len(self._nav)}/{self._n_cycles} · {value.as_of}", style=MUTED))
+            f"세션 {len(self._nav)}/{self._n_cycles} · {value.as_of}", style=MUTED))
 
     def _update_stats(self, nav: float, fund_return: float,
                       benchmark_return: float, excess: float,
@@ -429,12 +431,13 @@ class BacktestScreen(Screen):
         self.query_one("#warm-progress", ProgressBar).add_class("hidden")
         self.query_one("#roster", Static).add_class("hidden")
         self.query_one("#phase-line", Static).update(Text.assemble(
-            ("BACKTEST RESULTS  ", f"bold {BRIGHT}"),
+            ("백테스트 결과  ", f"bold {BRIGHT}"),
             (result.fund, f"bold {CYAN}"),
-            (f"  {result.start} → {result.end} · {result.rebalance} "
-             f"rebalance · {m.n_cycles} executed cycles · {m.n_orders} orders · "
+            (f"  {result.start} → {result.end} · "
+             f"{_CADENCE_LABELS.get(result.rebalance, result.rebalance)} 리밸런싱 · "
+             f"실행 사이클 {m.n_cycles}회 · 주문 {m.n_orders}건 · "
              f"{cost_line(m.trading_cost, m.traded_notional)} · "
-             f"{m.annualized_return_pct:+.1%} annualized",
+             f"연환산 {m.annualized_return_pct:+.1%}",
              MUTED),
         ))
         self._update_stats(
@@ -444,7 +447,7 @@ class BacktestScreen(Screen):
         )
         self.query_one("#result-summary", Static).update(
             Text.assemble(("✓ ", f"bold {GREEN}"),
-                          ("Saved backtest record to ", TEXT),
+                          ("백테스트 기록 저장: ", TEXT),
                           (str(path), f"bold {BRIGHT}")))
         self.query_one("#result-summary", Static).remove_class("hidden")
         card = score(result.records)
@@ -461,4 +464,4 @@ class BacktestScreen(Screen):
             ("✗ ", f"bold {RED}"),
             (f"{type(exc).__name__}: {exc}", RED),
         ))
-        self.notify(str(exc), title="Backtest failed", severity="error")
+        self.notify(str(exc), title="백테스트 실패", severity="error")

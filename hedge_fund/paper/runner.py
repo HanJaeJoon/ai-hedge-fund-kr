@@ -101,7 +101,7 @@ def _run_days(directory, deployed, data_client, fund, *, stop, build_fund, on_re
     while not stop.is_set():
         state = ledger.replay(spec.capital)
         if state.halted is not None:
-            raise FundHalted(f"{deployed.name} is halted: {state.halted}")
+            raise FundHalted(f"{deployed.name}은(는) 거래 중지됨: {state.halted}")
         due = next_session(data_client, spec, state.last_session, now=now)
         if due is None:
             _wait_for(_next_look(now()), now, sleep)
@@ -137,7 +137,7 @@ def _run_bars(directory, deployed, data_client, fund, *, stop, build_fund, on_re
     while not stop.is_set():
         state = ledger.replay(spec.capital)
         if state.halted is not None:
-            raise FundHalted(f"{deployed.name} is halted: {state.halted}")
+            raise FundHalted(f"{deployed.name}은(는) 거래 중지됨: {state.halted}")
         bar = next_session(data_client, spec, state.last_session, now=now)
         if bar is None:
             _wait_for(next_bar(now(), spec.interval_seconds, spec.window), now, sleep)
@@ -201,7 +201,7 @@ def serve(
     SIGTERM or SIGINT after the bar in flight. Refuses to start twice."""
     directory = Path(directory)
     if is_running(directory):
-        raise RuntimeError(f"{directory.name} is already running (pid {_read_pid(directory)})")
+        raise RuntimeError(f"{directory.name}은(는) 이미 실행 중입니다(pid {_read_pid(directory)})")
     stop = threading.Event()
     previous = {s: signal.signal(s, lambda *_: stop.set()) for s in (signal.SIGTERM, signal.SIGINT)}
     (directory / PID_FILE).write_text(str(os.getpid()))

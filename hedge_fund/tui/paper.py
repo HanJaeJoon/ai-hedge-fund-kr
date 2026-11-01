@@ -90,13 +90,13 @@ class PaperScreen(Screen):
     """
 
     BINDINGS = [
-        Binding("escape", "back", "back"),
-        Binding("enter", "run", "run next session", priority=True),
-        Binding("space", "runner", "start/stop runner"),
-        Binding("s", "sessions", "sessions"),
-        Binding("h", "halt", "halt"),
-        Binding("r", "resume", "resume"),
-        Binding("d", "delete", "delete"),
+        Binding("escape", "back", "뒤로"),
+        Binding("enter", "run", "다음 세션 실행", priority=True),
+        Binding("space", "runner", "러너 시작/중지"),
+        Binding("s", "sessions", "세션"),
+        Binding("h", "halt", "거래 중지"),
+        Binding("r", "resume", "재개"),
+        Binding("d", "delete", "삭제"),
     ]
 
     def __init__(self, select: str | None = None, run: bool = False) -> None:
@@ -110,7 +110,7 @@ class PaperScreen(Screen):
     def compose(self) -> ComposeResult:
         with Horizontal(id="select"):
             with Vertical(id="select-rail"):
-                yield Static(Text("PAPER TRADING", style=MUTED), classes="rail-title")
+                yield Static(Text("모의투자", style=MUTED), classes="rail-title")
                 yield OptionList(id="paper-menu")
             with VerticalScroll(id="select-detail"):
                 yield Static("", id="detail-body")
@@ -145,14 +145,14 @@ class PaperScreen(Screen):
             except ValueError as exc:
                 self._snaps.append(None)
                 menu.add_option(Option(
-                    Text(f" {directory.name} — Unavailable\n     {exc}", style=MUTED), disabled=True))
+                    Text(f" {directory.name} · 읽을 수 없음\n     {exc}", style=MUTED), disabled=True))
                 continue
             self._snaps.append(snap)
             menu.add_option(Option(paper_slot(i, snap), id=f"paper:{i}"))
         if self._snaps:
             menu.add_option(None)
         menu.add_option(Option(Text.assemble(
-            ("  +  ", GREEN), ("Build a new fund", TEXT)), id="build"))
+            ("  +  ", GREEN), ("새 펀드 만들기", TEXT)), id="build"))
         # Options added after mount leave `highlighted` unset — pin it to the
         # asked-for fund, else the first readable one, else the build row.
         wanted = next((f"paper:{i}" for i, s in enumerate(self._snaps)
@@ -190,14 +190,14 @@ class PaperScreen(Screen):
         elif oid == "build":
             blurb = Text()
             if not self._snaps:
-                blurb.append("No funds yet.\n\n", style=f"bold {BRIGHT}")
+                blurb.append("아직 펀드가 없습니다.\n\n", style=f"bold {BRIGHT}")
             blurb.append(
-                "Build a fund here and it starts paper trading at once: pick its "
-                "strategies, capital, cadence and tickers, and it gets a ledger, a "
-                "book and a kill switch of its own under\n" + str(paths.PAPER_DIR) + "\n\n"
-                "Then run it a session at a time with enter, or leave it running with "
-                "space (`aihf paper run <name>` from a shell). Whatever its cadence, "
-                "the next session is the next close or the next bar.", style=MUTED)
+                "여기서 펀드를 만들면 바로 모의투자를 시작합니다. 전략, 자본금, 주기, "
+                "종목을 고르면 펀드 전용 원장, 보유 현황, 킬 스위치가 다음 위치에 생깁니다.\n"
+                + str(paths.PAPER_DIR) + "\n\n"
+                "그다음 enter로 한 세션씩 실행하거나, space로 러너를 띄워 계속 돌립니다"
+                "(셸에서는 `aihf paper run <name>`). 주기와 상관없이 다음 세션은 "
+                "다음 종가 또는 다음 봉입니다.", style=MUTED)
             detail.update(blurb)
 
     # ---- live quotes ------------------------------------------------------
@@ -266,10 +266,10 @@ class PaperScreen(Screen):
         if snap is None or snap.error:
             return
         if snap.halted:
-            self.notify(f"{snap.deployed.name} is halted — r to resume first.", severity="warning")
+            self.notify(f"{snap.deployed.name}: 거래 중지 상태입니다. 먼저 r로 재개하세요.", severity="warning")
             return
         if snap.running:
-            self.notify(f"{snap.deployed.name}'s runner is advancing it — space to stop it first.",
+            self.notify(f"{snap.deployed.name}: 러너가 실행 중입니다. 먼저 space로 중지하세요.",
                         severity="warning")
             return
         directory = snap.directory
@@ -290,11 +290,11 @@ class PaperScreen(Screen):
         name = snap.deployed.name
         if is_running(snap.directory):
             stop_runner(snap.directory)
-            self.notify(f"{name} stopping after the session in flight")
+            self.notify(f"{name}: 진행 중인 세션이 끝나면 중지합니다")
             self._populate(name)
             return
         if snap.halted:
-            self.notify(f"{name} is halted — r to resume first.", severity="warning")
+            self.notify(f"{name}: 거래 중지 상태입니다. 먼저 r로 재개하세요.", severity="warning")
             return
 
         def resume() -> None:
@@ -302,9 +302,9 @@ class PaperScreen(Screen):
                 try:
                     spawn_runner(snap.directory)
                 except OSError as exc:
-                    self.notify(f"Could not start {name}: {exc}", severity="error")
+                    self.notify(f"{name} 시작 실패: {exc}", severity="error")
                     return
-                self.notify(f"{name} running · {cadence_identity(snap.spec)}")
+                self.notify(f"{name} 실행 중 · {cadence_identity(snap.spec)}")
                 self._populate(name)
         resume()
 
@@ -322,7 +322,7 @@ class PaperScreen(Screen):
         if snap is None:
             return
         snap.ledger.halt(APP_HALT)
-        self.notify(f"{snap.deployed.name} halted · r to resume", severity="warning")
+        self.notify(f"{snap.deployed.name} 거래 중지됨 · r로 재개", severity="warning")
         self._populate(snap.deployed.name)
 
     def action_resume(self) -> None:
@@ -330,7 +330,7 @@ class PaperScreen(Screen):
         if snap is None:
             return
         snap.ledger.resume()
-        self.notify(f"{snap.deployed.name} resumed")
+        self.notify(f"{snap.deployed.name} 재개됨")
         self._populate(snap.deployed.name)
 
     def action_delete(self) -> None:
@@ -344,7 +344,7 @@ class PaperScreen(Screen):
         if not yes:
             return
         wipe_fund(name)
-        self.notify(f"Deleted {name}", severity="warning")
+        self.notify(f"{name} 삭제됨", severity="warning")
         self._populate(None)
 
 
@@ -359,8 +359,8 @@ class RunConfirmScreen(ModalScreen[str | None]):
     """
 
     BINDINGS = [
-        Binding("escape", "cancel", "cancel"),
-        Binding("enter", "confirm", "run", priority=True),
+        Binding("escape", "cancel", "취소"),
+        Binding("enter", "confirm", "실행", priority=True),
     ]
 
     def __init__(self, directory: Path) -> None:
@@ -372,14 +372,13 @@ class RunConfirmScreen(ModalScreen[str | None]):
     def compose(self) -> ComposeResult:
         with Vertical(id="run-confirm"):
             yield Static("", id="run-q")
-            yield Static(Text("finding the next session…", style=MUTED), id="run-body")
+            yield Static(Text("다음 세션을 찾는 중...", style=MUTED), id="run-body")
             yield Static("", id="run-keys")
 
     def on_mount(self) -> None:
         self.query_one("#run-q", Static).update(
-            Text.assemble(("Run ", f"bold {BRIGHT}"), (self._directory.name, f"bold {GREEN}"),
-                          ("?", f"bold {BRIGHT}")))
-        self.query_one("#run-keys", Static).update(Text("esc  cancel", style=MUTED))
+            Text.assemble((self._directory.name, f"bold {GREEN}"), ("  실행?", f"bold {BRIGHT}")))
+        self.query_one("#run-keys", Static).update(Text("esc  취소", style=MUTED))
         self._resolve()
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool:
@@ -407,17 +406,17 @@ class RunConfirmScreen(ModalScreen[str | None]):
         self._verdict = "run" if due is not None else "redo" if state.last_session else None
         self._ready = True
         self.query_one("#run-q", Static).update(Text.assemble(
-            ("Run ", f"bold {BRIGHT}"), (deployed.name, f"bold {GREEN}"),
-            (f" through {session_label(due)}?" if due else
-             f" again through {session_label(state.last_session)}?" if self._verdict == "redo" else "?",
+            (deployed.name, f"bold {GREEN}"),
+            (f"  {session_label(due)}까지 실행?" if due else
+             f"  {session_label(state.last_session)}까지 다시 실행?" if self._verdict == "redo" else "  실행?",
              f"bold {BRIGHT}")))
         self.query_one("#run-body", Static).update(run_plan(deployed.name, state, due, deployed.spec))
         keys = Text()
         if self._verdict is not None:
             keys.append("enter", style=f"bold {GREEN}")
-            keys.append("  run   " if self._verdict == "run" else "  run again   ", style=MUTED)
+            keys.append("  실행   " if self._verdict == "run" else "  다시 실행   ", style=MUTED)
         keys.append("esc", style=f"bold {BRIGHT}")
-        keys.append("  cancel", style=MUTED)
+        keys.append("  취소", style=MUTED)
         self.query_one("#run-keys", Static).update(keys)
         self.refresh_bindings()
 
@@ -439,7 +438,7 @@ class RunSessionScreen(Screen):
     later. `tick` is the source of truth; it writes the ledger.
     """
 
-    BINDINGS = [Binding("escape", "back", "back")]
+    BINDINGS = [Binding("escape", "back", "뒤로")]
 
     def __init__(self, directory: Path, *, redo: bool = False) -> None:
         super().__init__()
@@ -467,7 +466,7 @@ class RunSessionScreen(Screen):
 
     def on_mount(self) -> None:
         self.query_one("#run-phase", Static).update(
-            Text(f"Starting {self._directory.name}…", style=MUTED))
+            Text(f"{self._directory.name} 시작 중...", style=MUTED))
         self._run()
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool:
@@ -499,7 +498,7 @@ class RunSessionScreen(Screen):
                 data = CachedDataClient(raw, live=spec.is_intraday)
                 if self._redo:
                     if state.last_session is None:
-                        raise NothingDue("no session recorded yet, nothing to run again")
+                        raise NothingDue("아직 기록된 세션이 없어 다시 실행할 것이 없습니다")
                     # The board is told about the state going into the session,
                     # which is what `redo` will advance from.
                     due = state.last_session
@@ -507,7 +506,7 @@ class RunSessionScreen(Screen):
                 else:
                     due = next_session(data, spec, state.last_session)
                     if due is None:  # the session slipped out from under the approval step
-                        raise NothingDue(f"nothing due after {state.last_session}")
+                        raise NothingDue(f"{state.last_session} 이후 실행할 세션이 없습니다")
                 dates = assessment_dates(state, due, spec)
                 app.call_from_thread(self._begin_board, deployed, due, dates, state.pending)
                 if dates:
@@ -549,14 +548,15 @@ class RunSessionScreen(Screen):
                      pending: DecisionRecord | None) -> None:
         doing = []
         if pending is not None:
-            doing.append(f"executing the {pending.as_of} decision")
+            doing.append(f"{pending.as_of} 결정 실행")
         if due in dates:
-            doing.append("assessing the next decision")
+            doing.append("다음 결정 분석")
         if not doing:
-            doing.append("marking the book")
+            doing.append("보유 현황 평가")
         self.query_one("#run-phase", Static).update(Text.assemble(
-            (f"Running {deployed.name} {'again through' if self._redo else 'through'} ", f"bold {BRIGHT}"),
+            (f"{deployed.name}  ", f"bold {BRIGHT}"),
             (session_label(due), f"bold {RED}"),
+            (f"까지 {'다시 ' if self._redo else ''}실행 중", f"bold {BRIGHT}"),
             ("  ·  " + " · ".join(doing), MUTED),
         ))
         if not dates:
@@ -584,7 +584,7 @@ class RunSessionScreen(Screen):
         self.query_one("#report-head", Static).update(session_headline(deployed.name, record))
         self.query_one("#report-foot", Static).update(Group(
             book_summary(record),
-            Text.assemble(("✓ ", f"bold {GREEN}"), ("Recorded ", MUTED),
+            Text.assemble(("✓ ", f"bold {GREEN}"), ("기록됨 ", MUTED),
                           (str(Ledger(self._directory).path(record.session)), MUTED)),
         ))
         self.refresh_bindings()  # phase changed: esc is offered again
@@ -601,13 +601,13 @@ class RunSessionScreen(Screen):
         phase = self.query_one("#run-phase", Static)
         if isinstance(exc, NothingDue):
             phase.update(Text.assemble(
-                ("Nothing due  ", f"bold {BRIGHT}"), (f"{exc}", MUTED),
-                ("\n\nThe fund is up to date. Run it again when the next session is in. esc to go back.", MUTED)))
+                ("실행할 세션 없음  ", f"bold {BRIGHT}"), (f"{exc}", MUTED),
+                ("\n\n펀드가 최신 상태입니다. 다음 세션이 오면 다시 실행하세요. esc로 돌아가기.", MUTED)))
         else:
             phase.update(Text.assemble(
                 ("✗ ", f"bold {RED}"), (f"{type(exc).__name__}: {exc}", RED),
-                ("\n\nesc to go back", MUTED)))
-            self.notify(str(exc), title="Run failed", severity="error")
+                ("\n\nesc로 돌아가기", MUTED)))
+            self.notify(str(exc), title="실행 실패", severity="error")
         self.refresh_bindings()
 
 
@@ -617,7 +617,7 @@ class SessionsScreen(Screen):
     Running and the kill switch live on the fund list, not here.
     """
 
-    BINDINGS = [Binding("escape", "back", "back")]
+    BINDINGS = [Binding("escape", "back", "뒤로")]
 
     def __init__(self, directory: Path) -> None:
         super().__init__()
@@ -635,7 +635,7 @@ class SessionsScreen(Screen):
             yield Static("", id="scorecard")
             with Horizontal(id="pf-panes"):
                 with Vertical(id="report-rail"):
-                    yield Static(Text("SESSIONS", style=MUTED), classes="rail-title")
+                    yield Static(Text("세션", style=MUTED), classes="rail-title")
                     yield OptionList(id="pf-sessions")
                 with VerticalScroll(id="report-detail"):
                     yield Static("", id="detail-pane")
@@ -662,7 +662,7 @@ class SessionsScreen(Screen):
         spec = snap.spec
         staff = ", ".join(s.title for s in spec.strategies)
         self.query_one("#pf-head", Static).update(Group(
-            Text.assemble((snap.deployed.name, f"bold {BRIGHT}"), ("  ·  paper", MUTED)),
+            Text.assemble((snap.deployed.name, f"bold {BRIGHT}"), ("  ·  모의투자", MUTED)),
             Text(f"{staff}  ·  {cadence_identity(spec)}  ·  ${spec.capital:,.0f}"
                  f"  ·  {' '.join(snap.deployed.universe)}", style=MUTED),
         ))
@@ -672,13 +672,13 @@ class SessionsScreen(Screen):
 
     def _render_numbers(self, snap: PaperSnapshot) -> None:
         curve_box = self.query_one("#curve-box", Vertical)
-        curve_box.border_title = "equity curve"
-        curve_box.border_subtitle = f"[{GREEN}]██[/] fund   [{CYAN}]──[/] {snap.spec.benchmark}"
+        curve_box.border_title = "자산 곡선"
+        curve_box.border_subtitle = f"[{GREEN}]██[/] 펀드   [{CYAN}]──[/] {snap.spec.benchmark}"
         if not snap.records:
             self.query_one("#stats", StatTiles).add_class("hidden")
             self.query_one("#scorecard", Static).add_class("hidden")
             self.query_one("#curve", Static).update(
-                Text("The curve starts with the first session.", style=MUTED))
+                Text("첫 세션부터 곡선이 그려집니다.", style=MUTED))
             return
         self.query_one("#stats", StatTiles).remove_class("hidden")
         m = snap.metrics()
@@ -700,9 +700,9 @@ class SessionsScreen(Screen):
         self._shown = list(reversed(snap.records))
         if not self._shown:
             self.query_one("#detail-pane", Static).update(Text(
-                "No sessions recorded yet.\n\nThe first run values the book at the most "
-                "recent completed close and makes the first decision; the run after "
-                "executes it.", style=MUTED))
+                "아직 기록된 세션이 없습니다.\n\n첫 실행은 가장 최근 완료된 종가로 "
+                "보유 현황을 평가하고 첫 결정을 내립니다. 그 결정은 다음 실행에서 "
+                "실행됩니다.", style=MUTED))
             return
         navs = [snap.spec.capital, *(r.nav for r in snap.records)]
         day: str | None = None
@@ -736,7 +736,7 @@ class SessionReportScreen(Screen):
     """One recorded session, browsable: every signal on the rail, the full
     thesis on the right. The same browser the tick lands on."""
 
-    BINDINGS = [Binding("escape", "back", "back")]
+    BINDINGS = [Binding("escape", "back", "뒤로")]
 
     def __init__(self, name: str, record: SessionRecord) -> None:
         super().__init__()

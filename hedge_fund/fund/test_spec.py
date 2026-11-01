@@ -68,30 +68,30 @@ def test_minute_fund_has_an_interval_and_a_window():
     spec = FundSpec(**{**MINIMAL, "rebalance": "minute"})
     assert spec.is_intraday and spec.interval == 1.0 and spec.interval_seconds == 60
     assert spec.window.start == "09:30" and spec.window.end == "16:00"
-    assert spec.cadence_label == "every 1m" and spec.window.label == "09:30–16:00 ET"
+    assert spec.cadence_label == "1분마다" and spec.window.label == "09:30–16:00 ET"
     half = FundSpec(**{**MINIMAL, "rebalance": "minute", "interval": 0.5, "window": {"start": "07:00", "end": "17:30"}})
-    assert half.interval_seconds == 30 and half.cadence_label == "every 30s"
+    assert half.interval_seconds == 30 and half.cadence_label == "30초마다"
     assert half.window.start_seconds == 7 * 3600 and half.window.end_seconds == 17 * 3600 + 30 * 60
-    assert FundSpec(**{**MINIMAL, "rebalance": "minute", "interval": 90}).cadence_label == "every 1h30m"
-    assert format_interval(150) == "2m30s" and format_interval(3600) == "1h"
+    assert FundSpec(**{**MINIMAL, "rebalance": "minute", "interval": 90}).cadence_label == "1시간 30분마다"
+    assert format_interval(150) == "2분 30초" and format_interval(3600) == "1시간"
     # The round trip keeps both fields; a daily fund never writes them.
     assert FundSpec.model_validate(half.model_dump()) == half
     assert "interval" in half.model_dump_json() and "window" in half.model_dump_json()
     assert "interval" not in FundSpec(**MINIMAL).model_dump_json()
     assert "window" not in FundSpec(**MINIMAL).model_dump()
-    assert not FundSpec(**MINIMAL).is_intraday and FundSpec(**MINIMAL).cadence_label == "weekly"
+    assert not FundSpec(**MINIMAL).is_intraday and FundSpec(**MINIMAL).cadence_label == "매주"
 
 
 @pytest.mark.parametrize(
     "overrides,message",
     [
-        ({"interval": 0.005}, "floor is 1 second"),  # 0.3s rounds to no bar at all
+        ({"interval": 0.005}, "최소 1초"),  # 0.3s rounds to no bar at all
         ({"interval": 0}, "greater than 0"),
-        ({"interval": 60 * 7}, "longer than the 09:30–16:00 ET window"),
-        ({"window": {"start": "16:00", "end": "09:30"}}, "open before it closes"),
-        ({"window": {"start": "03:59"}}, "outside US extended hours"),
-        ({"window": {"end": "20:01"}}, "outside US extended hours"),
-        ({"window": {"start": "9:30"}}, "not a time of day"),
+        ({"interval": 60 * 7}, "거래 시간 09:30–16:00 ET보다 깁니다"),
+        ({"window": {"start": "16:00", "end": "09:30"}}, "시작이 종료보다 빨라야"),
+        ({"window": {"start": "03:59"}}, "미국 확장 거래 시간"),
+        ({"window": {"end": "20:01"}}, "미국 확장 거래 시간"),
+        ({"window": {"start": "9:30"}}, "올바른 시각"),
         ({"window": {"start": "09:30", "lunch": "12:00"}}, "lunch"),
     ],
 )
@@ -101,9 +101,9 @@ def test_minute_fund_rejects_bad_intervals_and_windows(overrides, message):
 
 
 def test_interval_and_window_are_refused_on_slower_cadences():
-    with pytest.raises(ValidationError, match="interval, window: only a minute fund"):
+    with pytest.raises(ValidationError, match="interval, window: 분 단위 펀드에만"):
         FundSpec(**{**MINIMAL, "rebalance": "daily", "interval": 5, "window": {"start": "10:00"}})
-    with pytest.raises(ValidationError, match="interval: only a minute fund"):
+    with pytest.raises(ValidationError, match="interval: 분 단위 펀드에만"):
         FundSpec(**{**MINIMAL, "interval": 5})
 
 
@@ -155,7 +155,7 @@ def test_unversioned_files_are_rejected_without_changes(tmp_path):
     path = tmp_path / "old.yaml"
     path.write_text("name: old-fund\n" "universe: [AAPL, MSFT]\n" "strategies:\n" "  - name: event\n" "    models:\n" "      - name: pead\n" "risk:\n" "  max_position_pct: 0.25\n" "  max_gross_exposure: 1.0\n")
     original = path.read_bytes()
-    with pytest.raises(ValueError, match="older format") as exc:
+    with pytest.raises(ValueError, match="이전 형식") as exc:
         load_spec(path)
     assert str(path) in str(exc.value)
     assert path.read_bytes() == original
@@ -163,9 +163,9 @@ def test_unversioned_files_are_rejected_without_changes(tmp_path):
 
 def test_normalize_universe():
     assert normalize_universe(["aapl", " msft ", "AAPL"]) == ["AAPL", "MSFT"]
-    with pytest.raises(ValueError, match="universe is empty"):
+    with pytest.raises(ValueError, match="유니버스가 비어"):
         normalize_universe([])
-    with pytest.raises(ValueError, match="universe is empty"):
+    with pytest.raises(ValueError, match="유니버스가 비어"):
         normalize_universe(["  "])
 
 
@@ -174,7 +174,7 @@ def test_duplicate_strategy_name_rejected():
         {"name": "event", "models": [{"name": "pead"}], "blend": {"mode": "long_short"}},
         {"name": "event", "models": [{"name": "buffett"}], "blend": {"mode": "long_only"}},
     ]
-    with pytest.raises(ValidationError, match="duplicate strategy"):
+    with pytest.raises(ValidationError, match="전략 이름이 중복"):
         FundSpec(**{**MINIMAL, "strategies": strategies})
 
 

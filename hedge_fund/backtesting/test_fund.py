@@ -236,7 +236,7 @@ def test_universe_round_trips_onto_the_result():
 
 def test_missing_benchmark_raises():
     series = {"AAPL": SERIES["AAPL"]}  # no SPY bars at all
-    with pytest.raises(ValueError, match="trading grid"):
+    with pytest.raises(ValueError, match="거래일 그리드"):
         _run(series=series)
 
 
@@ -388,7 +388,7 @@ def test_a_minute_fund_backtests_at_daily_closes_as_the_daily_fund_it_collapses_
         fund = Fund(_spec(rebalance=cadence, **overrides), models={"solo": [FakeAnalyst("a", views={"AAPL": 1.0})]})
         results[cadence] = backtest_fund(fund, days[0], days[-1], DailyOnly(series), ["AAPL"])
     minute, daily = results["minute"], results["daily"]
-    assert minute.rebalance == "daily (mandate: every 10m · 13:00–13:10 ET)" and daily.rebalance == "daily"
+    assert minute.rebalance == "daily (운용 지침: 10분마다 · 13:00–13:10 ET)" and daily.rebalance == "daily"
     assert minute.dates == daily.dates == days
     assert minute.nav == daily.nav and minute.metrics == daily.metrics
     assert minute.records[1].executed.execution_policy == "next_close"

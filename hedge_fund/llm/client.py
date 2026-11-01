@@ -242,8 +242,8 @@ def make_llm(
         provider = "Anthropic"
     if not is_supported(provider):
         raise ValueError(
-            f"No v2 client for {provider} (model {model}). "
-            f"Supported: {', '.join(sorted(SUPPORTED_PROVIDERS))}."
+            f"{provider}(모델 {model})용 v2 클라이언트가 없습니다. "
+            f"지원 제공자: {', '.join(sorted(SUPPORTED_PROVIDERS))}."
         )
 
     api_key = _require_key(provider)
@@ -325,7 +325,7 @@ def _require_key(provider: str) -> str:
     key = key or (os.getenv(env_var) if env_var else None)
     if not key:
         raise ValueError(
-            f"{env_var} not found. Set it in your .env to use {provider} models."
+            f"{env_var}이(가) 없습니다. {provider} 모델을 쓰려면 .env에 설정해야 합니다."
         )
     return key
 

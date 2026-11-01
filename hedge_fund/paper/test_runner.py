@@ -178,13 +178,13 @@ def test_tick_runs_the_current_bar_by_hand_at_the_print_taken_now(tmp_path):
     A holiday is nothing due; the closing bar checkpoints the day."""
     directory = deploy("bars", _spec(), ["AAPL"], root=tmp_path)
     tape = _tape(_at(DAY, "12:00:00"))
-    with pytest.raises(NothingDue, match="no bar yet; next 13:00:00 ET"):
+    with pytest.raises(NothingDue, match="아직 봉이 없습니다. 다음: 13:00:00 ET"):
         tick(directory, tape, build_fund=build_fund, now=lambda: tape.now)
 
     tape.now = _at(DAY, "13:00:00")
     first = tick(directory, tape, build_fund=build_fund, now=lambda: tape.now)
     assert first.session == f"{DAY}T13:00:00" and first.decision is not None
-    with pytest.raises(NothingDue, match=f"no bar after {DAY}T13:00:00; next 13:05:00 ET"):
+    with pytest.raises(NothingDue, match=f"{DAY}T13:00:00 이후 봉이 없습니다. 다음: 13:05:00 ET"):
         tick(directory, tape, build_fund=build_fund, now=lambda: tape.now)
 
     tape.now = _at(DAY, "13:07:30")  # two and a half minutes into the 13:05 bar
@@ -200,7 +200,7 @@ def test_tick_runs_the_current_bar_by_hand_at_the_print_taken_now(tmp_path):
 
     del tape.path["SPY"][f"{NEXT}T13:00:00"]  # the market has not opened tomorrow by the first bar
     tape.now = _at(NEXT, "13:00:00")
-    with pytest.raises(NothingDue, match="SPY has not printed today"):
+    with pytest.raises(NothingDue, match="오늘 SPY 체결가가 없습니다"):
         tick(directory, tape, build_fund=build_fund, now=lambda: tape.now)
     assert ledger.sessions()[-1] == third.session
 
@@ -267,5 +267,5 @@ def test_serve_holds_a_pid_file_and_stops_on_sigterm(tmp_path, monkeypatch):
     assert not (directory / PID_FILE).exists() and not is_running(directory)
     # Two runners on one fund is a race on the ledger: the second refuses.
     (directory / PID_FILE).write_text(str(os.getpid()))
-    with pytest.raises(RuntimeError, match="already running"):
+    with pytest.raises(RuntimeError, match="이미 실행 중"):
         serve(directory, _tape(_at(DAY, "12:59:00")))

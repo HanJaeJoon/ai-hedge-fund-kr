@@ -92,7 +92,7 @@ class Ledger:
         try:
             return SessionRecord.model_validate_json(self.path(session).read_text())
         except (OSError, ValueError) as exc:
-            raise LedgerError(f"{self.path(session)}: cannot read session record: {exc}") from exc
+            raise LedgerError(f"{self.path(session)}: 세션 기록을 읽을 수 없습니다: {exc}") from exc
 
     def records(self, *, since: str | None = None) -> list[SessionRecord]:
         """Every record in order; with *since*, only sessions at or after it."""
@@ -107,21 +107,21 @@ class Ledger:
         session, a broken hash chain, or a record whose hash is not its own."""
         path = self.path(record.session)
         if path.exists():
-            raise LedgerError(f"{record.fund}: session {record.session} is already recorded")
+            raise LedgerError(f"{record.fund}: 세션 {record.session}은(는) 이미 기록되어 있습니다")
         latest = self.latest()
         if latest is not None and record.session <= latest.session:
             raise LedgerError(
-                f"{record.fund}: session {record.session} is not after the last "
-                f"recorded session {latest.session}"
+                f"{record.fund}: 세션 {record.session}이(가) 마지막으로 기록된 "
+                f"세션 {latest.session}보다 뒤가 아닙니다"
             )
         expected_prev = latest.hash if latest is not None else None
         if record.prev_hash != expected_prev:
             raise LedgerError(
-                f"{record.fund}: session {record.session} does not chain to the "
-                f"last recorded session ({latest.session if latest else 'none'})"
+                f"{record.fund}: 세션 {record.session}이(가) 마지막으로 기록된 "
+                f"세션({latest.session if latest else '없음'})과 체인으로 이어지지 않습니다"
             )
         if record.hash != record.compute_hash():
-            raise LedgerError(f"{record.fund}: session {record.session} hash does not match its contents")
+            raise LedgerError(f"{record.fund}: 세션 {record.session}의 해시가 내용과 일치하지 않습니다")
         path.parent.mkdir(parents=True, exist_ok=True)
         write_atomic(path, record.model_dump_json(indent=2))
         return path
@@ -134,7 +134,7 @@ class Ledger:
         caller's to restore."""
         latest = self.latest()
         if latest is None:
-            raise LedgerError(f"{self.directory.name}: nothing recorded to rewind")
+            raise LedgerError(f"{self.directory.name}: 되돌릴 기록이 없습니다")
         keep = self.records_dir / SUPERSEDED_SUBDIR
         keep.mkdir(exist_ok=True)
         safe = latest.session.replace(":", "")
@@ -161,11 +161,11 @@ class Ledger:
                 break
             record = self.read(session)
             if record.session != session:
-                raise LedgerError(f"{self.path(session)}: file is named {session} but records {record.session}")
+                raise LedgerError(f"{self.path(session)}: 파일 이름은 {session}인데 기록된 세션은 {record.session}입니다")
             if record.prev_hash != state.prev_hash:
-                raise LedgerError(f"{record.fund}: chain broken at session {session}")
+                raise LedgerError(f"{record.fund}: 세션 {session}에서 체인이 끊겼습니다")
             if record.hash != record.compute_hash():
-                raise LedgerError(f"{record.fund}: session {session} has been altered since it was written")
+                raise LedgerError(f"{record.fund}: 세션 {session}이(가) 기록된 뒤 변경되었습니다")
             state = next_state(state, record)
         return state.model_copy(update={"halted": self.halted()})
 
@@ -179,11 +179,11 @@ class Ledger:
         state whose last session is the newest recorded one can be kept:
         a checkpoint is a shortcut to the chain's head, not a fork."""
         if state.last_session is None or not is_intraday(state.last_session):
-            raise LedgerError(f"{self.directory.name}: only a minute fund's day is checkpointed")
+            raise LedgerError(f"{self.directory.name}: 체크포인트는 분 단위 펀드의 하루에만 남깁니다")
         latest = self.latest()
         if latest is None or latest.session != state.last_session or latest.hash != state.prev_hash:
             raise LedgerError(
-                f"{self.directory.name}: checkpoint for {state.last_session} does not match the chain's head"
+                f"{self.directory.name}: {state.last_session} 체크포인트가 체인의 마지막 기록과 일치하지 않습니다"
             )
         path = self.checkpoint_path(session_date(state.last_session))
         write_atomic(path, state.model_dump_json(exclude={"halted"}, indent=2))
@@ -224,7 +224,7 @@ class Ledger:
         try:
             control = json.loads(self.control_path.read_text())
         except (OSError, json.JSONDecodeError) as exc:
-            raise LedgerError(f"{self.control_path}: cannot read the kill switch: {exc}") from exc
+            raise LedgerError(f"{self.control_path}: 킬 스위치를 읽을 수 없습니다: {exc}") from exc
         if not control.get("halted"):
             return None
         return control.get("reason") or "halted"
